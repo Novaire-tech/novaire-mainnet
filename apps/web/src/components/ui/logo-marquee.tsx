@@ -123,15 +123,20 @@ const LogoImage = memo(function LogoImage({ logo }: { logo: Logo }) {
   // rather than a multicolor sponsor strip.
   if (logo.src) {
     return (
-      <span
-        role="img"
-        aria-label={logo.alt}
-        style={{
-          maskImage: `url('${logo.src}')`,
-          WebkitMaskImage: `url('${logo.src}')`,
-        }}
-        className="pointer-events-none block h-[32px] w-[32px] select-none bg-[#112a46] opacity-70 [mask-repeat:no-repeat] [mask-size:contain] [mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain] [-webkit-mask-position:center] transition-[opacity,transform] duration-[250ms] ease-out group-hover/logo:scale-[1.08] group-hover/logo:opacity-100 sm:h-[37px] sm:w-[37px] md:h-[41px] md:w-[41px]"
-      />
+      <span className="pointer-events-none flex select-none items-center gap-2.5 transition-transform duration-[250ms] ease-out group-hover/logo:scale-[1.08] sm:gap-3">
+        <span
+          role="img"
+          aria-label={logo.alt}
+          style={{
+            maskImage: `url('${logo.src}')`,
+            WebkitMaskImage: `url('${logo.src}')`,
+          }}
+          className="block h-[32px] w-[32px] bg-[#112a46] opacity-70 [mask-repeat:no-repeat] [mask-size:contain] [mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain] [-webkit-mask-position:center] transition-opacity duration-[250ms] ease-out group-hover/logo:opacity-100 sm:h-[37px] sm:w-[37px] md:h-[41px] md:w-[41px]"
+        />
+        <span className="whitespace-nowrap font-poppins text-[17px] font-medium tracking-[0.02em] text-[#112a46]/70 transition-colors duration-[250ms] ease-out group-hover/logo:text-[#112a46] sm:text-[18px] md:text-[19px]">
+          {logo.alt}
+        </span>
+      </span>
     );
   }
 

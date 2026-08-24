@@ -5,8 +5,8 @@ import { LogoMarquee, type Logo } from '@/components/ui/logo-marquee';
 // LogoMarquee falls back to a clean text wordmark for those.
 const ecosystemLogos: Logo[] = [
   { src: '/images/stellar.svg', alt: 'Stellar' },
-  { alt: 'Blend' },
-  { alt: 'Freighter' },
+  { src: '/images/blend.png', alt: 'Blend' },
+  { src: '/images/freighter.png', alt: 'Freighter' },
 ];
 
 export function TechMarquee() {
