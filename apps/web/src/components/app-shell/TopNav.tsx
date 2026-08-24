@@ -23,8 +23,15 @@ export function TopNav() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { unreadCount } = useNotifications();
-  const { isConnected, address, connect, disconnect } = useWallet();
+  const { isConnected, address, connect, disconnect, error } = useWallet();
   const formattedAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : '';
+
+  // If there's an error (e.g. wrong Freighter network), surface it to the user.
+  useEffect(() => {
+    if (error && error !== 'Wallet not connected') {
+      alert(`Wallet Connection Error: ${error}`);
+    }
+  }, [error]);
 
   useEffect(() => {
     const handleOpen = () => setIsSettingsOpen(true);
