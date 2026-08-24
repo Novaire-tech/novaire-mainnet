@@ -1,0 +1,32 @@
+---
+title: "Development"
+description: "Local development workflow."
+---
+
+## Run the frontend
+
+```bash
+npm run dev
+```
+
+Delegates to `next dev` inside `apps/web` — the only app wired to the root `dev` script (`apps/indexer` is run separately via `npm run indexer:dev`).
+
+## Run the indexer
+
+```bash
+npm run indexer:dev
+```
+
+Requires `DATABASE_URL` set (Postgres/Neon per `.env.example`; uses Prisma).
+
+## Lint
+
+```bash
+npm run lint    # next lint, apps/web only
+```
+
+## PR process
+
+Per `.github/workflows/README.md`'s recommended branch protection, a PR must pass the required status checks before merge: `ci-gate`, `Protocol Integrity gate` (if `contracts/**` touched), `Security gate`, `Deployment Validation gate`. See [Testing Strategy](/testing/testing-strategy) for what each of those actually runs.
+
+<Card title="Next: Contracts" href="/developers/contracts" />

@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String         @id
+  activities     Activity[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Epoch {
+  id               String       @id
+  maturityLedger   Int
+  underlyingAsset  String
+  syAsset          String
+  ptAsset          String
+  ytAsset          String
+  state            String       @default("active") // active, settled, archived
+  activities       Activity[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+
+model Activity {
+  id             String     @id
+  type           String     // deposit, withdraw, swap, claim, mint, burn
+  userId         String
+  epochId        String?
+  amount         String
+  timestamp      DateTime   @default(now())
+  txHash         String
+  user           User       @relation(fields: [userId], references: [id])
+  epoch          Epoch?     @relation(fields: [epochId], references: [id])
+}
+
+
+
+
+model SyncState {
+  id             String     @id @default("singleton")
+  lastLedger     Int        @default(0)
+  updatedAt      DateTime   @updatedAt
+}
+
+model ProtocolHistory {
+  id             String   @id @default(uuid())
+  timestamp      DateTime @default(now())
+  network        String
+  syWrapper      String
+  ptPrice        Float
+  ytPrice        Float
+  tvl            Float
+  fixedApy       Float
+  tradingVolume  Float    @default(0)
+  syExchangeRate Float?
+  ptSupply       String?
+  ytSupply       String?
+  eventType      String?  // e.g., "swap_u_pt", "deposit", etc.
+  txHash         String?
+
+  @@index([network, syWrapper, timestamp])
+}
+
+/// Waitlist signups from the marketing site (`/api/waitlist`).
+model WaitlistSignup {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

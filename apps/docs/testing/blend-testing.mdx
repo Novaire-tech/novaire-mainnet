@@ -1,0 +1,38 @@
+---
+title: "Blend Testing"
+description: "Mock Blend Tests vs. Real Blend E2E Tests — the distinction that matters most in this codebase."
+---
+
+<Warning>
+This is the single most important distinction to understand before trusting any claim about Blend-related correctness in this repository.
+</Warning>
+
+## Mock Blend Tests — PASS
+
+**Every unit test and every integration test in this repository** (see [Unit Tests](/testing/unit-tests) and [Integration Tests](/testing/integration-tests)) runs against `blend-adapter::MockBlendPool` — an in-memory test double, gated behind `#[cfg(any(test, feature = "testutils"))]`, implementing the same `BlendPool` trait as the real client. It supports `set_b_rate`, `set_reserve_index`, `set_reserve_list`, `set_should_fail_withdraw` — i.e., tests can script exactly what "Blend" reports and how it fails, on demand, deterministically, with no network involved.
+
+This is what proves: rate math correctness (`derived_exchange_rate`, `assets_from_b_tokens`), reserve-reindex recovery (`migrate_reserve_index_recovers_after_a_reindex` and its rejection-path siblings), withdrawal-failure handling (`redeem_surfaces_tolerated_withdrawal_failure`), and every cross-contract journey involving SY (all of `journey.rs`/`economics.rs`). Status: **PASS** — these run in the required CI gate (`ci.yml`, `protocol-integrity.yml`) on every PR.
+
+## Real Blend E2E Tests — PARTIALLY TESTED
+
+There is exactly one thing in this repository that talks to a real Blend pool: `scripts/verify-testnet.ts`, run via `npm run verify:testnet`, against the real deployed Blend pool on Stellar Testnet (`blend_pool = CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF`, per `deployments/testnet.toml`). It executes real signed transactions and reads real on-chain state.
+
+Status: **PARTIALLY TESTED**, not **PASS** — this script exists and is wired into `.github/workflows/verify-testnet.yml` and `nightly.yml`/`release-validation.yml`, but:
+
+- It runs on **manual `workflow_dispatch` only** for `verify-testnet.yml` — it is not part of the required PR merge gate.
+- No current-architecture run record (pass/fail log) for `verify-testnet.ts` was found anywhere in this repository at the time this documentation was prepared. Check the latest `verify-testnet.yml`/`nightly.yml` Actions run directly for the current status rather than assuming a result.
+
+## What NOT to conclude
+
+- **Do not** treat `MockBlendPool` test coverage as evidence that the real Blend integration's ABI, edge cases, or failure modes are proven correct — the mock only proves Novaire's own logic is correct *given whatever the mock is told to report*.
+- **Do not** treat the existence of `verify-testnet.ts` as equivalent to a passing, current, CI-enforced real-Blend E2E suite — it is a manual/scheduled script without a confirmed current pass/fail record in this repository.
+- **Do not** assume real-Blend adversarial scenarios (a misbehaving or malicious pool) have been tested anywhere — `SECURITY.md`'s Remediation Roadmap explicitly lists "adversarial/out-of-bounds Blend `b_rate` test scenarios" as an outstanding item, not a completed one.
+
+## Summary table
+
+| Test type | Runs against | Automated in CI merge gate? | Status |
+|---|---|---|---|
+| Unit tests | MockBlendPool | Yes (`ci.yml`) | PASS |
+| Integration tests | MockBlendPool | Yes (`protocol-integrity.yml`) | PASS |
+| `verify-testnet.ts` | Real Blend pool, real Stellar Testnet | No — manual dispatch / scheduled only | PARTIALLY TESTED |
+| Adversarial real-Blend scenarios | — | — | NOT IMPLEMENTED |

@@ -1,0 +1,98 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+  schedule:
+    - cron: "17 3 * * *" # daily, offset from nightly.yml's 02:00 run
+  workflow_call: {}
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Run gitleaks
+        run: gitleaks detect --source . --config .github/gitleaks.toml --redact --verbose
+
+  secret-patterns:
+    name: Wallet / mnemonic / key pattern scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan for hardcoded secrets
+        run: bash .github/scripts/scan-secrets.sh
+
+  cargo-audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: security-audit
+      - run: cargo audit --file Cargo.lock --deny warnings
+        working-directory: contracts
+
+  unsafe-rust:
+    name: Unsafe Rust detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fail on unsafe{} blocks in contract code
+        run: |
+          set -euo pipefail
+          hits=$(grep -rn --include='*.rs' -E '\bunsafe\b' contracts --exclude-dir=target || true)
+          if [[ -n "$hits" ]]; then
+            echo "::error::unsafe Rust found in contract code — Soroban contracts must not use unsafe:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "No unsafe blocks found."
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: [".", scripts]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.workspace }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ matrix.workspace }}
+      - name: npm audit (high+ severity fails)
+        run: npm audit --audit-level=high
+        working-directory: ${{ matrix.workspace }}
+
+  gate:
+    name: Security gate
+    if: always()
+    needs: [gitleaks, secret-patterns, cargo-audit, unsafe-rust, npm-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Security scan failed."
+            exit 1
+          fi

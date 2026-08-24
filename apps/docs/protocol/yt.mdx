@@ -1,0 +1,47 @@
+---
+title: "YT (Yield Token)"
+description: "The per-holder accrual ledger and the telescoping settle formula."
+---
+
+## What YT is
+
+A SEP-41 fungible token (`yt-token`, symbol `sYT`, 7 decimals) representing a claim on yield generated between now and maturity, plus a **per-holder accrual ledger** — `Checkpoint(Address): i128` (WAD rate at last settle) and `AccruedYield(Address): i128` (banked SY shares owed but not yet paid).
+
+## Minting
+
+`mint(to, amount)` is gated to `config.tokenizer.require_auth()` — minted 1:1 alongside PT by `tokenizer.split`, at the same face amount.
+
+## The settle formula
+
+When a holder's yield is settled (checkpoint rate `c` → new rate `r`), the owed amount is:
+
+```
+asset_yield = balance * (r - c) / c
+owed        = asset_yield * WAD / r
+```
+
+Both steps use checked i128 arithmetic and round down. This telescopes correctly across repeated partial settles at intermediate rates — settling at `c → r1 → r2` yields the same total as settling `c → r2` directly, because each step is scaled by the rate ratio at that step. `settle()` (tokenizer-only) banks the computed amount into `AccruedYield` without zeroing it; `consume()` (tokenizer-only) deducts exactly what was paid out, leaving any remainder banked.
+
+If `rate <= last checkpoint`, no yield is banked and the checkpoint is not lowered — a rate dip never claws back previously banked yield.
+
+## Claiming yield
+
+`tokenizer.claim_yield(holder)` calls `yt-token.settle(holder, rate)` to learn the total owed, then applies a **PT-senior cap**:
+
+```
+pt_face_reservation = ceil(pt_supply * WAD / rate)
+surplus              = max(0, escrow_shares - pt_face_reservation)
+pay                  = min(owed, surplus)
+```
+
+Only `pay` is actually transferred and `consume()`d from the YT ledger; any unpaid remainder stays banked for a later claim once more surplus exists. This means YT's claim is explicitly subordinated to PT's principal claim on the shared SY escrow — see [Settlement](/protocol/settlement).
+
+## Why holder-direct paths (transfer, burn) still go through the tokenizer
+
+`yt-token`'s own holder-direct paths (a plain `transfer` or `burn`) settle yield by calling `tokenizer.observe_rate()` / `freeze_maturity_rate()` / `maturity_rate()` — never a raw, unfrozen `sy-wrapper.exchange_rate()` read. This closes off a path where a holder could try to get yield settled against a live post-maturity rate instead of the frozen one by transferring or burning directly rather than going through `claim_yield`.
+
+## Burn paths
+
+- `burn(from, amount)` — holder-direct, self-settles via the tokenizer's rate mechanism first.
+- `burn_settled(from, amount, rate)` — tokenizer-only, used internally by `recombine` where the rate is already known and doesn't need re-deriving.
+- `burn_from(spender, from, amount)` — allowance-gated.

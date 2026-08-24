@@ -1,0 +1,74 @@
+name: Deployment Validation
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/config/deployments.*.json"
+      - "contracts/scripts/deploy-testnet-resilient.sh"
+      - ".github/scripts/validate-deployment.mjs"
+      - ".github/workflows/deployment-validation.yml"
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "apps/web/src/config/deployments.*.json"
+  workflow_dispatch:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-deployment-files:
+    name: Validate deployment manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # These used to point at scripts/deployments.*.json, which have not
+      # existed since the Aug-2026 rewrite. Guarded by hashFiles() they simply
+      # never ran, so this job was a permanently-green check that validated
+      # nothing. Point them at the manifests the app actually reads.
+      - name: Validate testnet deployment
+        run: node .github/scripts/validate-deployment.mjs apps/web/src/config/deployments.testnet.json
+
+      # Mainnet manifest is still unpopulated (all-empty addresses). Validate it
+      # only once it has content, but fail loudly rather than skipping silently
+      # if it exists and is malformed.
+      - name: Validate mainnet deployment
+        run: |
+          set -euo pipefail
+          f=apps/web/src/config/deployments.mainnet.json
+          if node -e "const d=require('./$f');process.exit(Object.values(d).some(v=>v)?0:1)"; then
+            node .github/scripts/validate-deployment.mjs "$f"
+          else
+            echo "::notice::$f is unpopulated — skipping (expected until mainnet deploy)"
+          fi
+
+  validate-required-secrets:
+    name: Validate required secrets are configured
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required GitHub Secrets exist (not their values — presence only)
+        env:
+          HAS_RPC_URL: ${{ secrets.TESTNET_RPC != '' }}
+          HAS_NETWORK_PASSPHRASE: ${{ secrets.NETWORK_PASSPHRASE != '' }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ "$HAS_RPC_URL" == "true" ]] || missing+=("TESTNET_RPC")
+          [[ "$HAS_NETWORK_PASSPHRASE" == "true" ]] || missing+=("NETWORK_PASSPHRASE")
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::warning::Missing recommended secrets: ${missing[*]} (required before enabling verify:testnet / release workflows)"
+          fi
+
+  gate:
+    name: Deployment Validation gate
+    if: always()
+    needs: [validate-deployment-files, validate-required-secrets]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ needs.validate-deployment-files.result }}" == "failure" ]]; then
+            echo "::error::Deployment manifest validation failed."
+            exit 1
+          fi

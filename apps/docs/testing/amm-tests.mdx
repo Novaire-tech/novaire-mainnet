@@ -1,0 +1,33 @@
+---
+title: "AMM Tests"
+description: "Regression coverage for the pricing curve, by scenario."
+---
+
+Mapping regression categories to what actually exists as named tests in `contracts/amm/src/lib.rs` and `contracts/integration_tests/tests/journey.rs`.
+
+| Scenario | Coverage | Status |
+|---|---|---|
+| Rate = 1 (par baseline) | Covered implicitly via default WAD-rate initialization tests | Present, not as an isolated named "rate=1" test |
+| Rate > 1 / SY appreciation | Rate-move repricing tests confirming quotes fall/rise monotonically and fewer SY shares are needed at an appreciated rate | PASS |
+| PT/SY repricing | Quote-vs-execution parity tests | PASS |
+| YT / flash repricing | Leveraged-YT-quote and below-face-YT-quote tests, plus the integration `yt_flash_route_round_trips_through_the_tokenizer` | PASS |
+| Round trips | Unit round-trip-conserves-value test, integration `split_then_recombine_preserves_sy` / `amm_swap_round_trip_charges_fees` | PASS |
+| Reserve accounting | Reserve/observation-update tests on both swap directions, pro-rata liquidity-removal tests | PASS |
+
+## Not found as dedicated tests
+
+- An isolated "rate exactly = 1, non-default" regression case, distinct from the initialization default.
+- A donation/inflation-attack-specific test targeting the AMM's own `MINIMUM_LIQUIDITY` bootstrap (the equivalent gap for `sy-wrapper` is explicitly flagged in `SECURITY.md`'s Remediation Roadmap; no analogous statement exists for the AMM specifically, but no dedicated test was found either).
+- An adversarial/dishonest-Blend-pool scenario feeding extreme or malformed rate values into the AMM.
+
+## The property-based model checker
+
+A `proptest!` block running **10,000 cases**, comparing the AMM's actual on-chain state against an independently-maintained position model across random sequences of split/recombine/swap operations. This is the single broadest piece of regression coverage in the AMM test suite — it's a general invariant fuzzer, not a scenario-specific test, so it complements rather than replaces the scenario-specific tests in the table above.
+
+## Slippage and boundary behavior
+
+Dedicated `min_*_out` slippage-gate tests for both `add_liquidity` and `remove_liquidity`; `swap_*_rejects_after_maturity` (one per direction) and `add_liquidity_rejects_after_maturity` confirm the market correctly closes to new trades/liquidity past maturity (removal remains open — see [Liquidity](/protocol/liquidity)); `initialize_rejects_curve_inputs_above_testnet_bounds` and `liquidity_rejects_amounts_above_testnet_bounds` confirm the conservative input caps described in [AMM](/protocol/amm#constants) are actually enforced.
+
+## TWAP-specific coverage
+
+Dedicated tests confirm: same-timestamp swaps don't double-count into the TWAP; rate views correctly report warm-up state and zero out at maturity; and an idle gap exceeding `twap_window` correctly re-triggers warm-up on the next observation — directly testing the anti-manipulation warm-up-snap behavior described in [Pricing](/protocol/pricing#warm-up-state).

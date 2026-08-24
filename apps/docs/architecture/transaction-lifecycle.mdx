@@ -1,0 +1,43 @@
+---
+title: "Transaction Lifecycle"
+description: "What happens inside a single mutating call, end to end."
+---
+
+Using `amm.swap_pt_for_sy` as the example — it touches the most moving parts (auth, cross-contract calls, curve math, reserve reconciliation, TWAP).
+
+<Steps>
+  <Step title="Authorization">
+    `from.require_auth()` — the caller must have signed for this specific invocation (Soroban's auth framework, not a custom check).
+  </Step>
+  <Step title="Read live SY rate">
+    `sy_rate_or_panic()` calls `sy-wrapper.exchange_rate()` via `invoke_contract`. This is a live read, not cached — every swap re-prices against the current Blend-derived rate.
+  </Step>
+  <Step title="Convert reserves to asset terms">
+    `total_asset = floor(state.total_sy * rate / WAD)`. All curve math from here operates in underlying-asset units, not raw SY shares.
+  </Step>
+  <Step title="Recompute the rate anchor">
+    The curve recalibrates its anchor against the last recorded implied rate and the new time-to-expiry, so implied rate stays continuous as time passes even with no trades in between.
+  </Step>
+  <Step title="Price the trade">
+    Solve the exchange rate at this trade size via the logit curve, apply the fee on the asset-denominated leg, convert back to SY units (floored on payout).
+  </Step>
+  <Step title="Bounds checks">
+    Reverts with `InsufficientLiquidity` if the computed `sy_out` is `<= 0` or `>= total_sy` (can never fully drain the pool). Reverts with `MarketProportionTooHigh` if the trade would push the PT proportion of the pool above 96%.
+  </Step>
+  <Step title="Move tokens">
+    Transfer PT from the trader into the pool, transfer SY from the pool to the trader (via `token::TokenClient`).
+  </Step>
+  <Step title="Reconcile reserves">
+    `reconcile_reserves()` re-reads the pool's actual on-chain PT/SY balances and overwrites `state.total_pt`/`state.total_sy` with those real values — the analytic values computed during pricing are a working intermediate, not the persisted source of truth.
+  </Step>
+  <Step title="Sync TWAP">
+    `sync_twap()` blends the new implied rate into the TWAP using an elapsed-time weight; if the gap since the last observation exceeds `twap_window`, it snaps to the latest observation and re-enters a warm-up period instead of trusting a stale average.
+  </Step>
+  <Step title="Emit event">
+    `Swap{trader, route: "pt_for_sy", amount_in, amount_out}`.
+  </Step>
+</Steps>
+
+## Why reconciliation matters
+
+Every mutating AMM entrypoint ends by re-deriving `total_pt`/`total_sy` from real token balances rather than trusting the incrementally-updated analytic state. This means rounding dust from repeated swaps can't silently accumulate into a state/reality mismatch — the persisted reserves are always exactly what the pool actually holds.

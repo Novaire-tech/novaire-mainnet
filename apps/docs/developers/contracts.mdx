@@ -1,0 +1,50 @@
+---
+title: "Contracts"
+description: "Working inside the contracts/ Rust workspace."
+---
+
+## Build
+
+```bash
+cd contracts
+cargo build --release --target wasm32v1-none
+# or, for the optimized/deployable artifacts:
+bash scripts/build-optimized-wasm.sh
+```
+
+<Info>The workspace targets `wasm32v1-none` (per `.github/workflows/ci.yml` and `contracts/scripts/build-optimized-wasm.sh`), not the older `wasm32-unknown-unknown` — some other repository docs outside `apps/docs` still reference the older target name.</Info>
+
+## Test
+
+```bash
+cd contracts
+cargo fmt --all --check
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace --all-features
+cargo audit --file Cargo.lock
+```
+
+These are exactly the checks `ci.yml`'s `rust-fmt-clippy`/`rust-test`/`rust-audit` jobs run — reproducing them locally before opening a PR avoids surprises. See [Testing Strategy](/testing/testing-strategy).
+
+## Workspace layout
+
+Six crates: `sy-wrapper`, `blend-adapter` (library, not deployed), `tokenizer`, `pt-token`, `yt-token`, `amm`, plus `shared/types` (shared trait definitions) and `integration_tests` (cross-contract test crate, not a deployable contract).
+
+## Making a contract change
+
+1. Edit the relevant crate under `contracts/<crate>/src/lib.rs`.
+2. Add/update unit tests in the same file's `#[cfg(test)] mod test`.
+3. If the change affects cross-contract behavior, add/update a test in `contracts/integration_tests/tests/`.
+4. Run `cargo test --workspace --all-features` locally.
+5. If the change affects a public interface, regenerate the corresponding TypeScript bindings in `packages/bindings/<contract>` — see [SDK](/developers/sdk).
+6. If deploying to testnet to validate, see [Testnet Deployment](/deployment/testnet).
+
+## Float usage check
+
+`contracts/scripts/check-wasm-floats.sh` checks the compiled wasm for floating-point instructions — Soroban wasm forbids floats, which is why the AMM's transcendental math (`ln_wad`/`exp_wad`) is implemented as fixed-point integer arithmetic rather than using `f64`. Run this after any change touching AMM math.
+
+## cargo-audit exceptions
+
+`contracts/.cargo/audit.toml` ignores one advisory (`RUSTSEC-2024-0436`, an unmaintained `paste` crate pulled in transitively via `soroban-env-host`) and disables failing on the yanked `spin 0.9.8` crate (also transitive, via `soroban-wasmi`) — both documented in that file as unavoidable given the pinned `soroban-sdk = "=26.1.0"` version, not overlooked.
+
+<Card title="Next: Testing" href="/developers/testing" />

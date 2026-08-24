@@ -1,0 +1,89 @@
+---
+title: "Contract Architecture"
+description: "Per-contract storage, public interface, and privileged functions."
+---
+
+Source: `contracts/*/src/lib.rs` at the current `master` HEAD. Line numbers are approximate and will drift as the code evolves — treat them as pointers, not guarantees.
+
+## sy-wrapper
+
+<AccordionGroup>
+  <Accordion title="Storage">
+    - `Config { admin, underlying, pool, reserve_index }` — instance
+    - `TotalSupply: i128` — instance, SY-share units
+    - `Balance(Address): i128` — persistent, SY shares
+    - `Principal(Address): i128` — persistent, underlying-asset units (tracks deposited principal for yield display)
+    - `Allowance(Address, Address): AllowanceValue` — temporary
+  </Accordion>
+  <Accordion title="Public interface">
+    `initialize_blend`, `config`, `share_balance`, `total_shares`, `migrate_reserve_index` (admin-only), plus SEP-41 (`balance`, `total_supply`, `decimals` = 7, `name` = "Novaire Standardized Yield", `symbol` = "sSY", `allowance`, `approve`, `transfer`, `transfer_from`) and the `StandardizedYield` trait (`deposit`, `redeem`, `exchange_rate`, `underlying`, `accrued_yield`).
+  </Accordion>
+  <Accordion title="Privileged functions">
+    Only `migrate_reserve_index` is admin-gated — recovers from a Blend reserve re-indexing event. It re-derives the reserve index itself and cross-checks asset identity rather than trusting a caller-supplied index, so it cannot be used to repoint the rate at a different asset. **There is no admin rate setter** — the rate is entirely Blend-derived.
+  </Accordion>
+  <Accordion title="Events">
+    `ReserveMigrated{old_index, new_index}`, `Deposit{holder, underlying_amount, shares_minted}`, `Redeem{holder, shares_burned, underlying_amount}`
+  </Accordion>
+</AccordionGroup>
+
+## blend-adapter (library, not deployed)
+
+No storage, no contract entrypoints, no admin functions. A shared crate providing:
+
+- `BlendPool` trait / `BlendPoolClient` — bindings to a real Blend pool contract (`get_reserve_list`, `get_reserve`, `get_positions`, `submit`).
+- Pure math: `assets_from_b_tokens`, `derived_exchange_rate`, `b_tokens_from_assets` — all `checked_*` arithmetic returning `Option`.
+- `MockBlendPool` / `MockBlendPoolClient` — gated behind `#[cfg(any(test, feature = "testutils"))]`, an in-memory test double implementing the same trait. **Used by every unit test in this repository.** See [Blend Testing](/testing/blend-testing) for what this does and doesn't prove.
+- A `YieldAdapter` trait is also defined in this crate but is not implemented by any contract in the current codebase — an interface pin, not active code.
+
+## tokenizer
+
+<AccordionGroup>
+  <Accordion title="Storage">
+    - `Config { admin, sy_token, pt_token, yt_token, maturity }`
+    - `MaturityRate: i128` — WAD, frozen SY rate at/after maturity
+    - `LastObservedRate: i128` — WAD, last pre-maturity observation (fallback if maturity is never explicitly frozen before someone redeems)
+  </Accordion>
+  <Accordion title="Public interface">
+    `initialize`, `config`, `maturity`, `is_matured`, `observe_rate` (permissionless), `freeze_maturity_rate` (permissionless, post-maturity only, idempotent), `maturity_rate`, `preview_split`, `preview_recombine`, `position`, `escrowed_sy`, `split`, `recombine`, `redeem_at_maturity`, `claim_yield`
+  </Accordion>
+  <Accordion title="Privileged functions">
+    Only `initialize` is admin-gated. Every other mutating entrypoint is user-authorized (`from.require_auth()`), not admin-gated.
+  </Accordion>
+  <Accordion title="Events">
+    `Split{holder, sy_amount, face}`, `Recombine{holder, pt_amount, yt_amount, sy_out}`, `RedeemAtMaturity{holder, pt_amount, sy_out}`, `ClaimYield{holder, sy_out}`
+  </Accordion>
+</AccordionGroup>
+
+## pt-token
+
+Standard SEP-41 fungible token (`decimals` = 7, `name` = "Novaire Principal Token", `symbol` = "sPT") with `mint` gated to `config.tokenizer.require_auth()` — only the tokenizer can mint PT. Deliberately carries no redemption-quote logic of its own; all redemption pricing (frozen rate, pro-rata cap) lives in the tokenizer.
+
+## yt-token
+
+SEP-41 token (`decimals` = 7, `name` = "Novaire Yield Token", `symbol` = "sYT") plus a per-holder accrual ledger:
+
+- `Checkpoint(Address): i128` — WAD rate at the holder's last settle
+- `AccruedYield(Address): i128` — banked SY shares owed but not yet paid
+
+`mint`, `settle`, `consume`, `burn_settled` are all gated to `config.tokenizer.require_auth()`. `settle` banks yield at a given rate without zeroing it; `consume` deducts exactly the amount paid out, leaving any remainder banked for later.
+
+## amm
+
+<AccordionGroup>
+  <Accordion title="Storage">
+    - `Config { admin, pt_token, sy_token, yt_token, tokenizer, maturity, scalar_root, initial_anchor, fee_bps, twap_window }`
+    - `State { total_pt, total_sy, total_lp, last_ln_implied_rate, twap_ln_implied_rate, last_observation, warmup_until }`
+    - `LpBalance(Address): i128`
+  </Accordion>
+  <Accordion title="Public interface">
+    `initialize`, `config`, `state`, `reserve_pt`, `reserve_sy`, `total_lp`, `lp_balance`, `bump_ttl`/`bump_lp_ttl` (permissionless keepers), `quote_pt_for_sy`/`quote_sy_for_pt`/`quote_sy_for_yt`/`quote_yt_for_sy`, `spot_apy`, `twap_apy`, `twap_warming_up`, `swap_pt_for_sy`/`swap_sy_for_pt`/`swap_sy_for_yt`/`swap_yt_for_sy`, `add_liquidity`, `remove_liquidity`, `implied_apy`, `maturity`
+  </Accordion>
+  <Accordion title="Privileged functions">
+    Only `initialize` is admin-gated. No other admin lever exists over pricing, reserves, or fees post-deployment.
+  </Accordion>
+  <Accordion title="Events">
+    `Swap{trader, route, amount_in, amount_out}` (route ∈ `pt_for_sy`/`sy_for_pt`/`sy_for_yt`/`yt_for_sy`), `AddLiquidity{provider, pt_in, sy_in, lp_out}`, `RemoveLiquidity{provider, lp_in, pt_out, sy_out}`
+  </Accordion>
+</AccordionGroup>
+
+Full pricing math is documented separately in [AMM](/protocol/amm) and [Pricing](/protocol/pricing) — it's dense enough to warrant its own pages.

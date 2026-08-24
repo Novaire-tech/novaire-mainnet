@@ -1,0 +1,97 @@
+name: Verify Testnet (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e_traces:
+        description: "Also run Playwright real-wallet/portfolio e2e suites and collect traces"
+        type: boolean
+        default: false
+
+concurrency:
+  group: verify-testnet
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-testnet:
+    name: npm run verify:testnet (live Stellar Testnet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETWORK: testnet
+      RPC_URL: ${{ secrets.TESTNET_RPC }}
+      NETWORK_PASSPHRASE: ${{ secrets.NETWORK_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+
+      - name: Run verify:testnet, capture full report
+        id: verify
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          npm run verify:testnet 2>&1 | tee artifacts/verify-testnet-report.md
+        continue-on-error: true
+
+      - name: Extract wallets and transaction hashes from log
+        if: always()
+        run: |
+          grep -E 'Wallet:' artifacts/verify-testnet-report.md > artifacts/wallets.txt || true
+          grep -E 'TX: ' artifacts/verify-testnet-report.md > artifacts/transaction-hashes.txt || true
+
+      - name: Upload verify:testnet artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verify-testnet-report
+          path: |
+            artifacts/verify-testnet-report.md
+            artifacts/wallets.txt
+            artifacts/transaction-hashes.txt
+          retention-days: 30
+
+      - name: Fail job if any scenario failed
+        if: steps.verify.outcome == 'failure'
+        run: |
+          echo "::error::verify:testnet reported RESULT: FAIL — see verify-testnet-report artifact."
+          exit 1
+
+  playwright-e2e:
+    name: Playwright real-wallet / portfolio e2e (optional)
+    if: ${{ inputs.run_e2e_traces }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: verify-testnet
+    env:
+      NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
+      NEXT_PUBLIC_NETWORK: testnet
+      NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Download Freighter wallet extension fixture
+        run: npm run vendor:freighter
+        working-directory: apps/web
+      - name: Run real-wallet e2e
+        run: npx playwright test --project=real-wallet --trace=on
+        working-directory: apps/web
+        continue-on-error: true
+      - name: Run portfolio e2e
+        run: npx playwright test --project=portfolio-e2e --trace=on
+        working-directory: apps/web
+        continue-on-error: true
+      - name: Upload Playwright report + traces + screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-e2e-artifacts
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 30

@@ -1,0 +1,39 @@
+---
+title: "Security Status"
+description: "The condensed, at-a-glance status."
+---
+
+<CardGroup cols={2}>
+  <Card title="Network" icon="server">
+    Stellar **Testnet only**. No mainnet deployment exists.
+  </Card>
+  <Card title="Independent audit" icon="magnifying-glass">
+    **Not performed.** The one audit-style document in the repo is self-described AI-assisted review of a superseded architecture.
+  </Card>
+  <Card title="Admin fund control" icon="key">
+    **None.** No admin function can move funds, mint/burn, or change pricing.
+  </Card>
+  <Card title="Emergency pause" icon="pause">
+    **Does not exist.** Listed as an open Medium-priority decision in `SECURITY.md`.
+  </Card>
+</CardGroup>
+
+## Status table
+
+| Area | Status |
+|---|---|
+| Unit test coverage | Present across all 6 crates, see [Unit Tests](/testing/unit-tests) |
+| Integration test coverage | Present — 4 test files covering cross-contract journeys, see [Integration Tests](/testing/integration-tests) |
+| AMM regression coverage | Present, including a 10,000-case property test, see [AMM Tests](/testing/amm-tests) |
+| Mock Blend testing | Extensive — this is what the entire automated test suite runs against |
+| Real Blend testnet E2E | Partial — see [Blend Testing](/testing/blend-testing) for exactly what's covered |
+| Mainnet E2E | Not applicable — no mainnet deployment exists |
+| Independent third-party audit | Not verified — none found in the repository |
+| First-depositor inflation attack test | Not verified — explicitly listed as outstanding in `SECURITY.md`'s Remediation Roadmap |
+| Adversarial/dishonest-Blend-pool test scenarios | Not verified — explicitly listed as outstanding in `SECURITY.md`'s Remediation Roadmap |
+| Bug bounty program | Not found |
+| Monitored security contact | Placeholder only (explicitly listed as outstanding) |
+
+## Reading this table correctly
+
+An entry marked "Present" means the corresponding test files/functions were found and read in this repository — it does not mean "this component is safe," only "this specific behavior has automated coverage." An entry marked "Not verified" or "Not found" is either explicitly documented as an open gap in `SECURITY.md`, or was not found anywhere in the repository at the time this documentation was prepared. Neither is a claim about mainnet-readiness.

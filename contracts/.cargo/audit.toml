@@ -1,0 +1,9 @@
+# cargo-audit config: our --deny warnings CI gate would otherwise fail on
+# advisories buried deep in soroban-sdk's own transitive deps (paste, spin),
+# which we don't control and can't bump independently of the pinned
+# soroban-sdk = "=26.1.0" version this repo's deployed contracts depend on.
+[advisories]
+ignore = ["RUSTSEC-2024-0436"] # paste: unmaintained, transitive via soroban-env-host -> ark-ff
+
+[yanked]
+enabled = false # spin 0.9.8 yanked, transitive via soroban-wasmi; no newer soroban-sdk fix available

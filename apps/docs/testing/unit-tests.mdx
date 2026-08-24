@@ -1,0 +1,32 @@
+---
+title: "Unit Tests"
+description: "What's covered inside each contract crate's own #[cfg(test)] module."
+---
+
+Run with `npm run contracts:test` (`cargo test --workspace`, from `contracts/`). All tests below run against `MockBlendPool` where Blend is involved — see [Blend Testing](/testing/blend-testing).
+
+## sy-wrapper
+
+`initialize_blend_requires_a_pool_and_sets_the_initial_rate`, `deposit_pulls_underlying_and_mints_shares_via_pool`, `sy_transfers_move_shares`, `allowance_entry_ttl_covers_requested_expiration`, `transfer_moves_principal_pro_rata_so_yield_stays_correct`, `accrued_yield_tracks_pool_derived_rate_growth`, `redeem_returns_underlying_and_reduces_principal`, four `#[should_panic]` unauthorized/invalid-amount error-path tests, `migrate_reserve_index_rejects_non_admin`.
+
+## blend-adapter (library)
+
+Pure rate-math tests, no on-chain integration: `b_tokens_convert_at_unit_rate_one_to_one`, `b_tokens_convert_with_accrued_interest`, `derived_rate_reflects_aum_over_supply`, `derived_rate_bootstraps_to_wad_when_empty`, `derived_rate_is_monotonic_as_interest_accrues`, `end_to_end_supply_then_accrual`, `overflow_is_reported_not_panicked`, `b_tokens_from_assets_inverts_the_conversion`, `full_accounting_round_trips_and_keeps_rate_honest`.
+
+## tokenizer
+
+`initialize_stores_config`, a double-init `#[should_panic]` test, `preview_split_returns_equal_pt_and_yt`, several error-path `#[should_panic]` tests, `observe_rate_after_maturity_delegates_to_freeze_instead_of_erroring`.
+
+## pt-token
+
+`initialize_stores_config`, `mint_increases_balance_and_supply`, `mint_requires_the_tokenizer_to_authorize`, `transfer_moves_balance`, an insufficient-balance `#[should_panic]` test, `approve_and_transfer_from_spend_allowance`, an allowance-exceeded `#[should_panic]` test, `allowance_entry_ttl_covers_requested_expiration`, `burn_reduces_balance_and_supply`, a burn-unauthorized `#[should_panic]` test.
+
+## yt-token
+
+`mint_extends_instance_ttl`, `mint_settles_fresh_holder_to_current_rate`, `claim_banks_yield_using_the_telescoping_formula`, `consume_removes_only_the_requested_amount`, an over-consume `#[should_panic]` test, `first_claim_at_mint_rate_accrues_nothing`, `yield_is_conserved_across_a_transfer`, `mint_increases_balance_and_supply`, `transfer_moves_balance`, a transfer `#[should_panic]` test, `approve_and_transfer_from_spend_allowance`, `allowance_entry_ttl_covers_requested_expiration`, `burn_reduces_balance_and_supply`, `burn_settled_is_gated_on_the_tokenizer`.
+
+## amm
+
+Roughly 50 tests covering initialization/curve-bound rejection, TTL extension, first/subsequent liquidity provisioning, slippage-gated add/remove liquidity, post-maturity behavior for every swap direction, non-LP removal rejection, reserve/observation updates on swap, rate-move repricing, round-trip value conservation at a non-par rate, TWAP warm-up behavior, and quote-accessor parity with actual execution — see [AMM Tests](/testing/amm-tests) for the full regression-focused breakdown, and the 10,000-case property test noted in [Testing Strategy](/testing/testing-strategy).
+
+<Info>`test_snapshots/test/*.json` directories under each contract crate are soroban-sdk auto-generated authorization-trace snapshots produced by these same tests — not additional, separate tests.</Info>

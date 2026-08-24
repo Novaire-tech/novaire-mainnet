@@ -1,0 +1,47 @@
+---
+title: "Deployment Configuration"
+description: "Environment variables and curve parameters a deployment needs."
+---
+
+## Environment variables (`.env.example`)
+
+| Variable | Purpose |
+|---|---|
+| `NETWORK` | `testnet` (default) or `mainnet` |
+| `RPC_URL` | Soroban RPC endpoint |
+| `NETWORK_PASSPHRASE` | Stellar network passphrase |
+| `BOOTSTRAP_AMOUNT` | Liquidity seed amount (bootstrap is inline in `deploy-testnet-resilient.sh`) |
+| `SKIP_BOOTSTRAP` | Skip the liquidity-seeding step |
+| `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_NETWORK`, `NEXT_PUBLIC_NETWORK_PASSPHRASE` | Frontend equivalents, exposed client-side |
+| `NEXT_PUBLIC_DOCS_URL` | The Mintlify documentation URL — used by the Navbar "Docs" link, Hero "Read more", and the JoinIn "Docs" link (see [Website Integration](/deployment/verification#website-integration)) |
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Postgres (Neon), only needed for the indexer/Prisma tooling |
+
+## Testnet curve parameters (set at `amm.initialize`)
+
+| Parameter | Testnet value | Notes |
+|---|---|---|
+| `scalar_root` | `2000000000000000000` (2.0 WAD) | Base curve steepness; actual steepness scales with time-to-expiry — see [AMM](/protocol/amm#rate-scalar-and-rate-anchor) |
+| `initial_anchor` | `1050000000000000000` (1.05 WAD) | Starting rate anchor |
+| `fee_bps` | `10` | 0.10% fee on the asset leg of PT⟷SY trades |
+| `twap_window` | `1800` seconds | TWAP blend window and warm-up-snap threshold |
+
+These are the values used in the current testnet deployment (`deployments/testnet.toml`) — not fixed protocol constants; a different deployment could choose different values within the bounds enforced by the AMM's own initialization checks (see [AMM Tests](/testing/amm-tests)).
+
+## Mainnet-specific required variables (`deploy-mainnet.sh`)
+
+Unlike the testnet script, `deploy-mainnet.sh` has **no defaults** for these — every one must be set explicitly or the script refuses to run:
+
+`UNDERLYING_ID`, `BLEND_POOL`, `MATURITY`, `SCALAR_ROOT`, `INITIAL_ANCHOR`, `FEE_BPS`, `TWAP_WINDOW`
+
+See [Mainnet Deployment](/deployment/mainnet) for what the script does with these once set.
+
+## Frontend wiring
+
+The testnet deploy script writes deployed addresses to two places consumed by the frontend:
+
+- `apps/web/.env.local`
+- `apps/web/src/config/deployments.testnet.json`
+
+Both are generated artifacts of `contracts/scripts/deploy-testnet-resilient.sh` — don't hand-edit them for a real deployment; re-run the deploy script instead. `deploy-mainnet.sh` deliberately does **not** write to either of these — wiring the frontend after a mainnet deploy is a separate, manual step.
+
+<Card title="Configuration Reference" href="/reference/configuration">The full reference table, including non-deployment env vars.</Card>

@@ -1,0 +1,29 @@
+---
+title: "SDK Reference"
+description: "The generated TypeScript packages."
+---
+
+Five packages under `packages/bindings/`, each mirroring one deployed contract's interface 1:1 (see [Contract Reference](/reference/contract-reference) for the underlying functions): `sy_wrapper`, `pt_token`, `yt_token`, `tokenizer`, `amm`. Each package's `name` field in its own `package.json` is the bare contract name (verified: `packages/bindings/amm/package.json` → `"name": "amm"`).
+
+## Usage pattern
+
+Each package exports a `Client` class and a `networks` constant (network passphrase + contract ID at generation time):
+
+```ts
+import { Client, networks } from "amm"; // or whichever package's bare name
+
+const client = new Client({
+  ...networks.testnet,
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
+});
+
+const state = await client.state();
+```
+
+## Regenerating
+
+See [SDK](/developers/sdk) for the exact `soroban contract bindings ts` command and when to re-run it.
+
+## No bindings exist for
+
+`marketplace`, `vault`, `factory`, `rollover`, `intent_engine`, `maturity_engine` — none of these are deployed contracts in the current architecture, so no such package exists or should be expected.

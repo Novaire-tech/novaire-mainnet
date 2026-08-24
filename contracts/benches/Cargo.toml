@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "novaire-benches"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "benches"
+path = "src/main.rs"
+
+[dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+novaire-shared-types = { path = "../shared/types" }
+novaire-amm = { path = "../amm" }
+novaire-blend-adapter = { path = "../blend-adapter", features = ["testutils"] }
+novaire-pt-token = { path = "../pt-token" }
+novaire-sy-wrapper = { path = "../sy-wrapper" }
+novaire-tokenizer = { path = "../tokenizer" }
+novaire-yt-token = { path = "../yt-token" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

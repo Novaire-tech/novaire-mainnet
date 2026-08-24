@@ -1,0 +1,41 @@
+---
+title: "Security Model"
+description: "Authorization, admin privileges, and privileged operations — for the current 6-crate architecture only."
+---
+
+<Warning>
+Any document describing a `factory`, `vault`, `marketplace`, `intent_engine`, or `rollover` contract (including `transfer_admin`/multi-epoch admin flows attached to them) describes an architecture that does not exist in the current `contracts/` workspace. This page is sourced entirely from `SECURITY.md` and the live contract source at the current `master` HEAD.
+</Warning>
+
+## What admin actually controls
+
+Across all five deployed contracts, the admin address set at `initialize` has exactly one privileged capability beyond one-time setup: `sy-wrapper.migrate_reserve_index`.
+
+| Contract | Admin-gated functions | Everything else |
+|---|---|---|
+| `sy-wrapper` | `migrate_reserve_index` | user-authorized (`deposit`, `redeem`, transfers) |
+| `tokenizer` | none beyond `initialize` | user-authorized (`split`, `recombine`, `redeem_at_maturity`, `claim_yield`) or permissionless (`observe_rate`, `freeze_maturity_rate`) |
+| `pt-token` | none beyond `initialize` | tokenizer-gated (`mint`), holder-authorized (`burn`, transfers) |
+| `yt-token` | none beyond `initialize` | tokenizer-gated (`mint`, `settle`, `consume`, `burn_settled`), holder-authorized (`burn`, transfers) |
+| `amm` | none beyond `initialize` | permissionless (`bump_ttl`, `bump_lp_ttl`), user-authorized (swaps, liquidity) |
+
+There is **no admin function anywhere in the current codebase** that can: move user funds, mint/burn tokens directly, change the SY exchange rate, change AMM pricing parameters post-deployment, or pause the protocol. This is confirmed directly in the contract source.
+
+## `migrate_reserve_index` is self-verifying, not a blank check
+
+Even the one privileged function is constrained: it re-derives the correct Blend reserve index itself from the pool's live state and cross-checks that the underlying asset identity still matches, rather than trusting a caller-supplied index. An admin cannot use this function to repoint `sy-wrapper` at a different asset or pool. See [Access Control](/security/access-control).
+
+## Cross-contract trust
+
+Within Novaire's own contracts, cross-contract calls (tokenizer ↔ PT/YT, AMM ↔ tokenizer flash routes) are self-authorized by the calling contract (`authorize_as_current_contract`), not by asking the user to sign a second time — these are internal, same-deployment trust relationships, not external trust. The [integration test suite](/testing/integration-tests) specifically verifies these self-authorized calls don't widen what a user implicitly authorizes beyond their top-level signed action.
+
+## The one real external trust boundary
+
+Everything above is internal to contracts Novaire deployed and controls together. The **one boundary that leaves that trust domain** is `sy-wrapper`'s dependency on the real Blend Capital pool — covered in depth in [Trust Boundaries](/security/trust-boundaries) and [Threat Model](/security/threat-model).
+
+<CardGroup cols={2}>
+  <Card title="Threat Model" href="/security/threat-model" />
+  <Card title="Trust Boundaries" href="/security/trust-boundaries" />
+  <Card title="Access Control" href="/security/access-control" />
+  <Card title="Known Findings" href="/security/known-findings" />
+</CardGroup>

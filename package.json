@@ -1,0 +1,34 @@
+{
+  "name": "novaire",
+  "version": "0.2.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "start": "npm run start -w web",
+    "lint": "npm run lint -w web",
+    "dev:docs": "npm run dev -w docs",
+    "build:docs": "npm run build -w docs",
+    "indexer:dev": "npm run dev -w indexer",
+    "contracts:test": "cd contracts && cargo test --workspace",
+    "contracts:build": "cd contracts && bash scripts/build-optimized-wasm.sh",
+    "contracts:bench": "cd contracts && make bench",
+    "contracts:bench:check": "cd contracts && make bench-check",
+    "deploy": "cd contracts && bash scripts/deploy-testnet-resilient.sh",
+    "verify:testnet": "tsx scripts/verify-testnet.ts",
+    "test:scripts": "cd scripts && vitest run --config vitest.config.ts",
+    "bench:web": "npm run bench -w web",
+    "bench:indexer": "npm run bench -w indexer",
+    "bench": "npm run contracts:bench && npm run bench:web && npm run bench:indexer"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  }
+}

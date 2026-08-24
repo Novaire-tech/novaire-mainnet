@@ -1,0 +1,48 @@
+---
+title: "Blend Integration"
+description: "The real integration, and how it differs from the mock used in tests."
+---
+
+<Warning>
+**REAL BLEND INTEGRATION** (production code path) and **MockBlendPool TEST INFRASTRUCTURE** are different things. Read this page fully before assuming test coverage implies live-Blend behavior is proven — see [Blend Testing](/testing/blend-testing) for exactly what is and isn't covered.
+</Warning>
+
+## The real path
+
+```
+sy-wrapper  →  BlendPoolClient (blend-adapter)  →  Blend Capital Pool (external contract, testnet)
+```
+
+`sy-wrapper` holds the deployed Blend pool's address (`Config.pool`) and the underlying asset's reserve index within that pool (`Config.reserve_index`), set at `initialize_blend()` and verified against the pool's live reserve list at that time.
+
+On deposit/redeem, `sy-wrapper` calls the real Blend pool's `submit` entrypoint (`BlendPoolClient::submit`) with a `Request { address, amount, request_type }` — `REQUEST_SUPPLY = 0` on deposit, `REQUEST_WITHDRAW = 1` on redeem. These are real cross-contract calls into Blend's actual contract on testnet, not a simulated response.
+
+## bRate and AUM
+
+Blend tracks its own internal interest-bearing exchange rate per reserve, `b_rate`, scaled by `10^12` (`BLEND_SCALAR_12`). Novaire's `blend-adapter` converts:
+
+```
+assets_from_b_tokens(b_tokens, b_rate) = floor(b_tokens * b_rate / 10^12)
+```
+
+`sy-wrapper` reads the position's `supply` bToken balance at its reserve index (`positions.supply[reserve_index]`) via `get_positions`, and combines it with the current `b_rate` from `get_reserve` to get AUM. This AUM feeds the SY exchange rate described in [SY](/protocol/sy).
+
+## Authorization
+
+`sy-wrapper`'s calls into Blend happen on behalf of the wrapper contract itself, not the end user — the user only authorizes their `deposit`/`redeem` call into `sy-wrapper`; `sy-wrapper` is the party that holds a position with Blend. Positions, custody, and interest accrual all live inside Blend's contract, not Novaire's.
+
+## The mock, and why it exists
+
+`blend-adapter::MockBlendPool` / `MockBlendPoolClient` (gated behind `#[cfg(any(test, feature = "testutils"))]`) implements the same `BlendPool` trait as the real client, supporting `set_b_rate`, `set_reserve_index`, `set_reserve_list`, `set_should_fail_withdraw`. **Every unit test and every integration test in this repository runs against this mock**, not against a live Blend pool. It exists so contract logic (rate math, reindex recovery, withdrawal-failure handling) can be tested deterministically and fast, without needing a live network.
+
+## What is and isn't proven by the mock
+
+The mock proves that `sy-wrapper`'s and `blend-adapter`'s *logic* is correct given whatever bRate/reserve data the mock is told to report. It does **not** prove:
+
+- That the real Blend pool's `submit`/`get_reserve`/`get_positions` interface matches what `blend-adapter`'s `BlendPoolClient` expects at the ABI level, against the actual deployed Blend contract.
+- That the real Blend pool behaves the way the mock assumes under edge cases (partial withdrawals, reserve caps, liquidation events).
+
+<CardGroup cols={2}>
+  <Card title="Real Blend E2E status" href="/testing/blend-testing">See exactly what live-testnet coverage exists today.</Card>
+  <Card title="Threat Model" href="/security/threat-model">What Novaire assumes about Blend's honesty and correctness.</Card>
+</CardGroup>

@@ -1,0 +1,42 @@
+---
+title: "Configuration Reference"
+description: "Every environment variable and deployment-time parameter, in one place."
+---
+
+## Environment variables (`.env.example`)
+
+| Variable | Required for | Notes |
+|---|---|---|
+| `NETWORK` | contracts/deploy scripts | `testnet` (default) or `mainnet` |
+| `RPC_URL` | contracts/deploy scripts | Soroban RPC endpoint |
+| `NETWORK_PASSPHRASE` | contracts/deploy scripts | Stellar network passphrase |
+| `BOOTSTRAP_AMOUNT` | testnet deploy | Liquidity seed amount |
+| `SKIP_BOOTSTRAP` | testnet deploy | Skip liquidity seeding |
+| `NEXT_PUBLIC_RPC_URL` | frontend | Client-exposed RPC endpoint |
+| `NEXT_PUBLIC_NETWORK` | frontend | Client-exposed network name |
+| `NEXT_PUBLIC_NETWORK_PASSPHRASE` | frontend | Client-exposed passphrase |
+| `NEXT_PUBLIC_DOCS_URL` | frontend | Mintlify documentation URL — used by the Navbar Docs link, Hero "Read more", and JoinIn's Docs link |
+| `DATABASE_URL` | indexer/Prisma only | Postgres (Neon) |
+| `DATABASE_URL_UNPOOLED` | indexer/Prisma only | Postgres direct connection |
+
+## Mainnet-only required variables (`deploy-mainnet.sh`, no defaults)
+
+`UNDERLYING_ID`, `BLEND_POOL`, `MATURITY`, `SCALAR_ROOT`, `INITIAL_ANCHOR`, `FEE_BPS`, `TWAP_WINDOW` — see [Mainnet Deployment](/deployment/mainnet).
+
+## Curve/deployment parameters
+
+Set once at `amm.initialize` and `tokenizer.initialize` — see [Deployment Configuration](/deployment/configuration) for the current testnet values and [AMM](/protocol/amm#constants) for what each one controls.
+
+## Fixed protocol constants (not configurable per-deployment)
+
+| Constant | Value | Where |
+|---|---|---|
+| `WAD` | `10^18` | all contracts |
+| `BLEND_SCALAR_12` | `10^12` | `blend-adapter` |
+| `BPS_DENOMINATOR` | `10_000` | `amm` |
+| `IMPLIED_RATE_TIME` | `365 days` | `amm` |
+| `MINIMUM_LIQUIDITY` | `1000` | `amm` |
+| `MAX_MARKET_PROPORTION` | `96%` of WAD | `amm` |
+| Token decimals | `7` | `sy-wrapper`, `pt-token`, `yt-token`, matches underlying |
+
+<Card title="Reference: Contracts" href="/reference/contract-reference" />

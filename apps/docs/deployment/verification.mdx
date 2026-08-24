@@ -1,0 +1,32 @@
+---
+title: "Verification"
+description: "Post-deployment checks — including one CI gate that doesn't check what you'd expect."
+---
+
+## Automated post-deployment check
+
+```bash
+npm run verify:testnet
+```
+
+Runs `scripts/verify-testnet.ts` against whatever is currently recorded in `deployments/testnet.toml` — real wallets, real signed transactions, real balance reads, cross-checked against an independent TypeScript reimplementation of the pricing formulas. This is the closest thing this repository has to a post-deployment smoke test. See [E2E Tests](/testing/e2e-tests) for exactly what it does and doesn't currently prove.
+
+## Manual checks worth doing after any deploy
+
+- Confirm `deployments/testnet.toml`'s `[contracts]` addresses match what you expect to have just deployed (the deploy script writes this automatically, but verify it wasn't a stale/partial resume).
+- Confirm `apps/web/src/config/deployments.testnet.json` and `apps/web/.env.local` were updated to match — the frontend reads from these, not from `deployments/testnet.toml` directly.
+- Confirm `initialize_blend` on `sy-wrapper` picked up the correct Blend pool reserve index for the underlying asset (a mismatch here would trigger `InvalidBlendReserve` on the first real rate read — see [Debugging](/developers/debugging)).
+- Confirm the AMM's curve parameters (`scalar_root`, `initial_anchor`, `fee_bps`, `twap_window`) match what was intended — these are set once at `initialize` and cannot be changed afterward (see [Security Model](/security/security-model)).
+- **Manually verify the Blend pool address** against Blend's own published pool registry before treating any deployment as production-ready — per `SECURITY.md`'s Deployment Verification checklist, this is explicitly not code-enforceable.
+
+## CI's own deployment validation — a known gap
+
+`.github/workflows/deployment-validation.yml` is a required status check (`Deployment Validation gate`). Its `validate-deployment-files` job runs `node .github/scripts/validate-deployment.mjs` against `scripts/deployments.testnet.json` and `scripts/deployments.mainnet.json`, but **only if those files exist** (`hashFiles(...) != ''`).
+
+<Warning>
+Neither file currently exists in this repository. The current deploy script (`contracts/scripts/deploy-testnet-resilient.sh`) writes deployment records to `deployments/testnet.toml` and `apps/web/src/config/deployments.testnet.json` — a different path than what `deployment-validation.yml` checks. This means `deployment-validation.yml`'s manifest-shape check is currently a silent no-op on every run: the `hashFiles` guard is false, so the validation step never executes, and the job still reports success. **The current, real `deployments/testnet.toml` is not validated by CI at all.**
+</Warning>
+
+This doesn't block anything today (the job passes regardless), but it means the "Deployment Validation gate" required check is not actually validating the deployment record you'd expect it to. The workflow's `validate-required-secrets` job (checking for `TESTNET_RPC`/`NETWORK_PASSPHRASE` presence) is unaffected and still runs normally.
+
+<Card title="Troubleshooting" href="/reference/troubleshooting">Common failure modes and what they mean.</Card>

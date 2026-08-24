@@ -1,0 +1,45 @@
+---
+title: "SDK"
+description: "The generated TypeScript client bindings under packages/bindings."
+---
+
+## What exists
+
+`packages/bindings/` contains five packages, one per currently-deployed contract in the 6-crate architecture: `sy_wrapper`, `pt_token`, `yt_token`, `tokenizer`, `amm`. Each is a standalone TypeScript package (`package.json`, `tsconfig.json`, `src/`, `README.md`) generated directly from the deployed contract's interface — not hand-written.
+
+<Warning>
+There is no `marketplace`, `vault`, `factory`, `rollover`, or `intent_engine` bindings package — none of those contracts exist in the current architecture.
+</Warning>
+
+## How they're generated
+
+Per each package's own `README.md`, via the Stellar/Soroban CLI:
+
+```bash
+soroban contract bindings ts \
+  --rpc-url <RPC_URL> \
+  --network-passphrase "<NETWORK_PASSPHRASE>" \
+  --contract-id <CONTRACT_ID> \
+  --output-dir ./packages/bindings/<contract>
+```
+
+The network passphrase and contract ID used at generation time are exported from each package's `src/index.ts` as a `networks` constant.
+
+## Package details
+
+Each package's `package.json` `name` field is just the bare contract name (e.g. `amm`, `sy_wrapper`) — not namespaced under `@novaire/` or similar. Verified from `packages/bindings/amm/package.json`:
+
+- ESM (`"type": "module"`), built via `tsc` (`"build": "tsc"`)
+- Depends on `@stellar/stellar-sdk ^14.5.0` and `buffer 6.0.3`
+- Version pinned at `0.0.0` — not independently published/versioned yet
+
+## Regenerating after a contract change
+
+If a contract's public interface changes, regenerate its binding package using the command above with the newly deployed contract ID (see [Testnet Deployment](/deployment/testnet) for where that ID comes from), then rebuild:
+
+```bash
+cd packages/bindings/<contract>
+npm run build
+```
+
+<Card title="SDK Reference" href="/reference/sdk-reference">The interface surface each package exposes.</Card>

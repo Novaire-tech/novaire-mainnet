@@ -1,0 +1,55 @@
+---
+title: "Known Findings"
+description: "What was found, by whom, and its current status — with architecture context."
+---
+
+<Warning>
+The only findings table in this repository (`SECURITY_AUDIT.md`) is explicitly marked in that file as covering a **superseded architecture** and is **self-described as produced by AI-assisted code review, not a licensed security firm** — it is not an independent third-party audit. The current 6-crate architecture has no equivalent IDed findings table; `SECURITY.md` describes its risks as prose and an explicit Remediation Roadmap (see [Threat Model](/security/threat-model)), not as severity-rated findings. Both are reproduced below for completeness, clearly labeled.
+</Warning>
+
+## Superseded audit findings (`SECURITY_AUDIT.md`)
+
+| ID | Severity | Status |
+|---|---|---|
+| SEC-01 | Low | Fixed |
+| SEC-02 | Low | Fixed |
+| SEC-03 | Low | Open (recommendation, no "Fixed" tag in source) |
+| SEC-04 | Low | Open |
+| SEC-05 | Low | Open |
+| SEC-06 | Low | Open |
+| SEC-07 | Low | Open |
+| SEC-08 | Informational | Fixed |
+| SEC-09 | Informational | Fixed |
+| SEC-10 | Low | Open |
+| SEC-11 | Informational | Fixed |
+| SEC-12 | Informational | Fixed |
+| SEC-13 | Informational | Fixed |
+| SEC-14 | Informational | Fixed |
+
+No Critical or High severity findings are recorded. **This table describes an earlier architecture** — do not treat "Fixed" here as confirmation that an equivalent issue was assessed against the current 6-crate code; the current `SECURITY.md` describes a different admin surface than what some of these findings (e.g. SEC-06, which concerned an admin-transfer-style function) assume.
+
+## Current architecture — Remediation Roadmap (`SECURITY.md`)
+
+`SECURITY.md`'s own Remediation Roadmap, verified directly from source:
+
+| Priority | Item | Status |
+|---|---|---|
+| Critical | — | **None identified** |
+| High | — | **None identified** |
+| Medium | Decide whether to reintroduce an emergency pause mechanism, or formally accept its absence | Outstanding |
+| Medium | Decide whether to reintroduce a rate-of-change bound on the SY exchange rate, or formally accept unbounded Blend trust | Outstanding |
+| Medium | Add a dedicated sy-wrapper first-depositor donation/inflation-attack regression test | Outstanding |
+| Low | Replace the placeholder security contact email/PGP key before mainnet | Outstanding |
+| Low | Consider multisig/timelock for the remaining admin surface | Outstanding |
+| Low | Align `soroban-sdk` dependency versions across workspace crates | Outstanding |
+| Low | Add adversarial/out-of-bounds Blend `b_rate` test scenarios | Outstanding |
+
+Separately, `SECURITY.md`'s "Security Note: ExchangeRateBelowOne" documents one specific concern that was investigated and closed: **not reproducible in the current implementation or deployment, no protocol change required** — a self-conducted, in-repo investigation, not a third-party-verified finding.
+
+## What has not happened
+
+- No independent third-party security audit of the current architecture is recorded anywhere in this repository.
+- No bug bounty program is referenced.
+- No published, monitored security contact exists yet (`SECURITY.md` explicitly lists this as an outstanding Low-priority item).
+
+<Card title="Security Status" href="/security/security-status">The condensed status view.</Card>

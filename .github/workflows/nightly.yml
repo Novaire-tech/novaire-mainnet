@@ -1,0 +1,88 @@
+name: Nightly Verification
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 02:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-tests:
+    name: Protocol invariant tests
+    uses: ./.github/workflows/protocol-integrity.yml
+
+  security-scans:
+    name: Security scans
+    uses: ./.github/workflows/security.yml
+
+  verify-testnet:
+    name: verify:testnet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETWORK: testnet
+      RPC_URL: ${{ secrets.TESTNET_RPC }}
+      NETWORK_PASSPHRASE: ${{ secrets.NETWORK_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+      - name: Run verify:testnet
+        id: verify
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          npm run verify:testnet 2>&1 | tee artifacts/verify-testnet-report.md
+        continue-on-error: true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: nightly-verify-testnet-report
+          path: artifacts/verify-testnet-report.md
+      - name: Fail on scenario failure
+        if: steps.verify.outcome == 'failure'
+        run: exit 1
+
+  dependency-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: nightly-audit
+      - run: cargo audit --file Cargo.lock
+        working-directory: contracts
+      - uses: ./.github/actions/setup-node
+      - run: npm audit --audit-level=high
+
+  report:
+    name: Nightly report
+    if: always()
+    needs: [protocol-tests, security-scans, verify-testnet, dependency-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build nightly summary
+        run: |
+          {
+            echo "# Nightly Verification Report — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Protocol tests | ${{ needs.protocol-tests.result }} |"
+            echo "| Security scans | ${{ needs.security-scans.result }} |"
+            echo "| verify:testnet | ${{ needs.verify-testnet.result }} |"
+            echo "| Dependency scan | ${{ needs.dependency-scan.result }} |"
+          } | tee nightly-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nightly-report
+          path: nightly-report.md
+      - name: Fail if any check failed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Nightly verification found failures — see nightly-report artifact."
+            exit 1
+          fi

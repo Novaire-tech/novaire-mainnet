@@ -1,0 +1,30 @@
+name: Setup Node toolchain
+description: Installs Node with npm cache, then runs npm ci at repo root (workspaces) and optionally in scripts/.
+
+inputs:
+  node-version:
+    description: Node version to install
+    required: false
+    default: "20"
+  install-scripts-workspace:
+    description: Also npm ci inside scripts/ (it is not an npm workspace member)
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: npm ci (root workspaces)
+      shell: bash
+      run: npm ci
+
+    - name: npm ci (scripts/)
+      if: inputs.install-scripts-workspace == 'true'
+      shell: bash
+      run: npm ci
+      working-directory: scripts

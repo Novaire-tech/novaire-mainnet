@@ -1,0 +1,41 @@
+---
+title: "Core Concepts"
+description: "Precise definitions for the terms used throughout this documentation."
+---
+
+<Note>Full precision and units for each of these are documented per-contract in [Protocol](/protocol/sy). This page is the quick-reference version — see [Glossary](/reference/glossary) for the exhaustive list.</Note>
+
+## SY units vs. underlying asset units
+
+This distinction matters everywhere in the codebase and is a common source of confusion:
+
+- **Underlying asset units** — actual USDC, in its native 7-decimal Stellar token representation.
+- **SY units** — shares of the `sy-wrapper` contract's total pool position. Not 1:1 with underlying — the conversion is the exchange rate.
+
+```
+exchange_rate = assets_under_management * WAD / total_sy_supply
+```
+
+`WAD` is `10^18`, the fixed-point scale used throughout the contracts (`sy-wrapper/src/lib.rs`, `blend-adapter/src/lib.rs`). `assets_under_management` is derived from the live Blend pool position, not stored independently — see [Blend Integration](/protocol/blend-integration).
+
+The rate starts at exactly `WAD` (1.0) when the pool is empty and rises monotonically as Blend interest accrues, under normal operation — there is no admin function to set or lower it.
+
+## PT and YT
+
+Minted in equal face amounts by `tokenizer.split()`. Face amount is computed as `floor(sy_amount * rate / WAD)` at the time of the split — i.e., PT/YT face is denominated in **underlying-asset terms at split time**, not in raw SY shares.
+
+## AMM, LP, and implied rate
+
+The `amm` contract runs a single PT/SY market. Liquidity providers deposit both PT and SY and receive **LP** tokens representing a pro-rata claim on the pool. The **implied rate** is the continuously-compounded annualized rate that the current PT price implies until maturity — it is a market-derived number, not a promised return. See [Pricing](/protocol/pricing) for the exact formula.
+
+## bRate / AUM
+
+`bRate` is Blend's own internal exchange rate for its interest-bearing "bTokens" (12-decimal fixed point). Novaire's `blend-adapter` converts bToken balances to underlying-asset AUM via `assets_from_b_tokens = floor(b_tokens * b_rate / 10^12)`. This AUM is what feeds the SY exchange rate above.
+
+## Maturity and settlement
+
+Every market has a fixed maturity timestamp set at `tokenizer.initialize()`. Before maturity, the SY rate is observed on demand (`observe_rate()`). At or after maturity, the rate is frozen once (`freeze_maturity_rate()`) and all redemptions use that frozen value, not the live rate — see [Settlement](/protocol/settlement).
+
+## Everything else
+
+For AUM/bRate/WAD/implied rate and every other term used in these docs, see the [Glossary](/reference/glossary) — each definition there links back to the contract it's derived from.

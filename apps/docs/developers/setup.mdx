@@ -1,0 +1,64 @@
+---
+title: "Setup"
+description: "Prerequisites, installation, and repository structure."
+---
+
+## Prerequisites
+
+Verified against `contracts/rust-toolchain.toml`, `contracts/Cargo.toml`, and `package.json` at the current `master` HEAD:
+
+- Node.js ≥ 20.9, npm ≥ 9 (npm workspaces)
+- Rust 1.96.0 (pinned via `rust-toolchain.toml`, `profile = "minimal"`) with the `wasm32v1-none` target
+- `soroban-sdk = "=26.1.0"` (pinned in `contracts/Cargo.toml`)
+- Stellar CLI
+
+## Repository structure
+
+```
+novaire-testnet/
+├── apps/
+│   ├── web/          — Next.js frontend (the only app wired to root npm scripts)
+│   ├── indexer/       — indexer service, uses Prisma/Postgres
+│   └── docs/          — this Mintlify documentation site
+├── contracts/
+│   ├── sy-wrapper/
+│   ├── blend-adapter/ — library crate, not deployed
+│   ├── tokenizer/
+│   ├── pt-token/
+│   ├── yt-token/
+│   ├── amm/
+│   ├── shared/types/  — shared trait definitions
+│   ├── integration_tests/
+│   └── scripts/       — deploy/build scripts
+├── packages/
+│   └── bindings/      — generated TypeScript SDK, one package per deployed contract
+├── scripts/           — standalone workspace: verify-testnet.ts and other TS tooling
+├── deployments/       — deployment records (testnet.toml)
+└── prisma/            — indexer database schema
+```
+
+## Install
+
+```bash
+git clone https://github.com/Novaire-tech/novaire-testnet.git
+cd novaire-testnet
+npm install
+cp .env.example .env
+```
+
+## Environment variables
+
+See [Configuration](/reference/configuration) for the full table. `DATABASE_URL`/`DATABASE_URL_UNPOOLED` are only needed for the indexer/Prisma tooling — not for running the frontend or contracts.
+
+## Build
+
+```bash
+npm run build              # next build, apps/web only
+npm run contracts:build    # bash contracts/scripts/build-optimized-wasm.sh
+```
+
+## Branching
+
+Default branch is `master` (not `main`).
+
+<Card title="Next: Development" href="/developers/development" />

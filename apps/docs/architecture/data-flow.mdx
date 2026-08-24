@@ -1,0 +1,91 @@
+---
+title: "Data Flow"
+description: "How value and tokens move through the system."
+---
+
+## Deposit → SY
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant SY as sy-wrapper
+    participant BP as Blend Pool
+
+    U->>SY: deposit(from, amount)
+    SY->>BP: submit (REQUEST_SUPPLY)
+    BP-->>SY: bTokens credited
+    SY->>SY: mint shares against actual post-Blend AUM delta
+    SY-->>U: SY shares
+```
+
+Shares are minted against the *actual* AUM delta observed after the Blend call, not the raw transferred amount — this avoids rate dilution from bToken rounding (`sy-wrapper/src/lib.rs`).
+
+## Split → PT + YT
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant TOK as tokenizer
+    participant SY as sy-wrapper
+    participant PT as pt-token
+    participant YT as yt-token
+
+    U->>TOK: split(from, sy_amount)
+    TOK->>SY: transfer sy_amount into escrow
+    TOK->>TOK: face = floor(sy_amount * rate / WAD)
+    TOK->>PT: mint(from, face)
+    TOK->>YT: mint(from, face)
+```
+
+No solvency gate at mint — this is a deliberate Pendle-style design (see [Trust Boundaries](/security/trust-boundaries)), not a missing check.
+
+## Swap (PT → SY, through the AMM)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant AMM as amm
+    participant SY as sy-wrapper
+
+    U->>AMM: swap_pt_for_sy(from, pt_in, min_sy_out)
+    AMM->>SY: exchange_rate()
+    AMM->>AMM: compute exchange_rate via rate-anchor curve
+    AMM->>AMM: pre_fee_asset_out, fee, asset_out
+    AMM->>AMM: convert asset_out to SY (floor)
+    AMM-->>U: sy_out
+    AMM->>AMM: reconcile_reserves() against real token balances
+```
+
+## SY ⇄ YT (flash-routed)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant AMM as amm
+    participant TOK as tokenizer
+
+    U->>AMM: swap_sy_for_yt(from, sy_in, min_yt_out)
+    AMM->>TOK: flash_split (self-authorized, single tx)
+    TOK-->>AMM: PT + YT face
+    AMM->>AMM: sell the PT leg into the PT/SY curve
+    AMM-->>U: YT out
+```
+
+There is no independent YT pricing curve — every SY⇄YT trade is a same-transaction flash split/recombine through the tokenizer plus a PT/SY curve trade. This is why YT price is fully derived from the PT curve and the live SY rate, not set independently. See [Pricing](/protocol/pricing).
+
+## Settlement at maturity
+
+```mermaid
+sequenceDiagram
+    participant Anyone as Anyone (permissionless)
+    participant TOK as tokenizer
+    participant U as PT/YT Holder
+
+    Anyone->>TOK: freeze_maturity_rate()
+    TOK->>TOK: MaturityRate = effective_rate() (idempotent)
+    U->>TOK: redeem_at_maturity(from, pt_amount)
+    TOK->>TOK: sy_out = pro-rata capped payout at MaturityRate
+    TOK-->>U: sy_out
+```
+
+See [Settlement](/protocol/settlement) for the exact pro-rata cap formula and what happens under a rate regression.

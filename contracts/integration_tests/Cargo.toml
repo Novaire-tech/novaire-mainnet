@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "novaire-integration-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+doctest = false
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+novaire-blend-adapter = { path = "../blend-adapter", features = ["testutils"] }
+novaire-shared-types = { path = "../shared/types" }
+novaire-sy-wrapper = { path = "../sy-wrapper" }
+novaire-pt-token = { path = "../pt-token" }
+novaire-yt-token = { path = "../yt-token" }
+novaire-tokenizer = { path = "../tokenizer" }
+novaire-amm = { path = "../amm" }

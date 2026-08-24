@@ -1,0 +1,35 @@
+---
+title: "Integration Tests"
+description: "contracts/integration_tests/tests — cross-contract scenarios, all against MockBlendPool."
+---
+
+Run with `cargo test -p integration_tests` from `contracts/`. All four files below wire multiple deployed contracts together in-process, but do so against `MockBlendPool` (or a locally-defined mock/rate-setter) — none of these hit a live Blend pool. See [Blend Testing](/testing/blend-testing).
+
+## `journey.rs` — full lifecycle wiring
+
+`split_then_recombine_preserves_sy`, `pt_redeems_one_to_one_after_maturity`, `amm_wires_to_the_same_market`, `amm_swap_round_trip_charges_fees`, `yt_flash_route_round_trips_through_the_tokenizer`, `flash_route_over_mint_dust_stays_a_matched_pair_and_never_panics`, `yt_flash_route_accepts_one_share_recombine_dust_window`.
+
+These verify `sy-wrapper` → `tokenizer` → `pt-token`/`yt-token` → `amm` are correctly wired as one system, not just individually correct.
+
+## `economics.rs` — the largest suite
+
+Yield accrual/claim correctness, PT-vs-share redemption, escrow-covers-claims (`escrow_covers_outstanding_claims`), and — the largest cluster — **maturity-rate freezing under various orderings and timing**:
+
+- `redemption_uses_frozen_maturity_rate`
+- `direct_yt_transfer_is_observed_by_the_maturity_freeze`
+- `pt_redeem_and_yt_claim_use_one_frozen_rate_regardless_of_order`
+- `redeem_allowed_at_exact_maturity`
+
+Plus rate-regression handling, PT-senior/YT-subordinated claim tests, transfer-conserves-yield tests, and a randomized conservation test using a custom RNG (not `proptest`).
+
+## `auth_invariants.rs` — authorization scope
+
+Inspects `env.auths()` traces to confirm the AMM's self-authorized flash-recombine route into the tokenizer requires only the user's top-level signature, pinned to specific arguments, and doesn't widen what the user implicitly authorized. See [Access Control](/security/access-control).
+
+## `blend_wrapper.rs` — Blend-adjacent recovery paths
+
+`blend_supply_rate_growth_yield_claim_and_withdraw_round_trip`, a reserve-index-move `#[should_panic]` test, `migrate_reserve_index_recovers_after_a_reindex`, `migrate_reserve_index_rejects_non_admin`, `migrate_reserve_index_rejects_when_underlying_absent`, `migrate_reserve_index_rejects_on_index_mismatch`, `redeem_surfaces_tolerated_withdrawal_failure` — all against `BlendFixture`/mock, not live Blend.
+
+## What this layer proves, precisely
+
+That the five deployed contracts, wired together exactly as they will be at deployment, behave correctly across realistic multi-step user journeys and adversarial-timing scenarios (rate regressions, freeze-timing edge cases) — under the assumption that Blend reports rates the way the mock does. It does not prove behavior against Blend's actual contract ABI or actual on-chain edge cases. See [Blend Testing](/testing/blend-testing) for that distinction in full.

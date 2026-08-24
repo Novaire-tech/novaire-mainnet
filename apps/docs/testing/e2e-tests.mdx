@@ -1,0 +1,29 @@
+---
+title: "E2E Tests"
+description: "What end-to-end coverage exists beyond contract-level tests."
+---
+
+## Live-testnet verification: `scripts/verify-testnet.ts`
+
+The one true end-to-end test in this repository. Run manually via:
+
+```bash
+npm run verify:testnet
+```
+
+Per its own header comment, this script creates real funded Stellar Testnet wallets, executes real signed transactions against the deployed Novaire contracts, reads balances directly from the ledger, and cross-checks two independently-implemented formulas (the on-chain contract math vs. a separate TypeScript reimplementation in `scripts/verify_testnet/expected.ts`) against what actually happened on-chain. No mocks, no CI/browser automation involved in the core script.
+
+This is triggered automatically by `.github/workflows/verify-testnet.yml`, but only via manual `workflow_dispatch` — **it is not part of the required PR merge gate**. `nightly.yml` and `release-validation.yml` additionally run it on a cron/release trigger.
+
+**Current-architecture pass/fail status: NOT VERIFIED in this repository.** No current-run log/artifact for `verify-testnet.ts` against the present 6-crate deployment was found in the repository at the time this documentation was prepared — do not assume it currently passes without checking the latest Actions run for `verify-testnet.yml`/`nightly.yml` directly.
+
+## Optional real-wallet browser E2E
+
+`verify-testnet.yml` optionally runs a Playwright suite exercising a real wallet against the live frontend + live testnet contracts (`--project=real-wallet`, `--project=portfolio-e2e`, per that workflow). Not independently re-verified in depth for this documentation pass.
+
+## What is explicitly not covered
+
+- Mainnet E2E — not applicable, no mainnet deployment exists.
+- A dedicated real-Blend adversarial scenario (dishonest pool, extreme rate values) — not found anywhere in the repository, and explicitly listed as an outstanding item in `SECURITY.md`'s Remediation Roadmap.
+
+<Card title="Blend Testing" href="/testing/blend-testing">The mock-vs-real distinction, spelled out in full.</Card>

@@ -1,0 +1,49 @@
+---
+title: "Glossary"
+description: "Project-specific terms, defined against the actual implementation."
+---
+
+<AccordionGroup>
+  <Accordion title="SY (Standardized Yield)">
+    A fungible share token (`sy-wrapper`) representing a claim on an underlying yield-bearing position (currently a Blend Capital pool deposit). See [SY](/protocol/sy).
+  </Accordion>
+  <Accordion title="PT (Principal Token)">
+    A token minted 1:1 alongside YT by `tokenizer.split`, redeemable for underlying value at maturity (subject to a pro-rata cap under a rate regression). See [PT](/protocol/pt).
+  </Accordion>
+  <Accordion title="YT (Yield Token)">
+    A token minted 1:1 alongside PT, carrying a per-holder yield-accrual ledger that banks SY-denominated yield as the SY rate rises. See [YT](/protocol/yt).
+  </Accordion>
+  <Accordion title="AUM (Assets Under Management)">
+    The underlying-asset-denominated value of everything `sy-wrapper` has deposited into Blend, derived live from Blend's reported bToken balance and `b_rate` — never stored independently. See [SY](/protocol/sy#exchange-rate-derivation).
+  </Accordion>
+  <Accordion title="bRate">
+    Blend's own internal exchange rate for its interest-bearing bTokens, scaled by `10^12`. Read from the Blend pool via `get_reserve`. See [Blend Integration](/protocol/blend-integration).
+  </Accordion>
+  <Accordion title="AMM (Automated Market Maker)">
+    The `amm` contract — a Notional Finance-style time-decaying logit curve pricing PT against SY, with SY⇄YT trades synthesized via flash routes through the tokenizer. See [AMM](/protocol/amm).
+  </Accordion>
+  <Accordion title="LP (Liquidity Provider) / LP token">
+    A liquidity provider to the `amm` PT/SY pool receives LP tokens representing a pro-rata claim on pooled PT and SY. See [Liquidity](/protocol/liquidity).
+  </Accordion>
+  <Accordion title="WAD">
+    The fixed-point scale used throughout the contracts: `10^18`. A "rate of 1.0" is represented on-chain as the integer `1_000_000_000_000_000_000`.
+  </Accordion>
+  <Accordion title="Implied Rate">
+    The continuously-compounded annualized rate that the AMM's current PT price implies until maturity — a market-derived number, not a promised or guaranteed return. See [Pricing](/protocol/pricing).
+  </Accordion>
+  <Accordion title="Maturity">
+    The fixed unix timestamp set at `tokenizer.initialize()` after which the market closes to new trades/liquidity additions and PT becomes redeemable via `redeem_at_maturity`. See [Settlement](/protocol/settlement).
+  </Accordion>
+  <Accordion title="Settlement">
+    The process of freezing the SY rate at/after maturity (`freeze_maturity_rate`) and paying out PT/YT holders against that frozen rate, with a pro-rata cap applied if the escrow is short. See [Settlement](/protocol/settlement).
+  </Accordion>
+  <Accordion title="Rate anchor / rate scalar">
+    Curve-shape parameters recalibrated on every AMM call so implied rate stays continuous as time passes and reserves shift. See [AMM](/protocol/amm#rate-scalar-and-rate-anchor).
+  </Accordion>
+  <Accordion title="TWAP (Time-Weighted Average Price)">
+    Here, a time-weighted average of the AMM's implied rate, computed as a single-step elapsed-time-weighted blend (not a true cumulative-sum TWAP), with a warm-up-snap safeguard against long-idle manipulation. See [AMM](/protocol/amm#twap).
+  </Accordion>
+  <Accordion title="Flash split / flash recombine">
+    The mechanism by which the AMM synthesizes SY⇄YT trades — splitting or recombining PT/YT through the tokenizer within the same transaction as the swap, self-authorized rather than requiring a second user signature. See [Data Flow](/architecture/data-flow).
+  </Accordion>
+</AccordionGroup>

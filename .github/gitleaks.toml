@@ -1,0 +1,36 @@
+title = "Novaire gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "stellar-secret-key"
+description = "Stellar/Soroban secret seed (S...)"
+regex = '''\bS[A-Z0-9]{55}\b'''
+tags = ["key", "stellar"]
+
+[[rules]]
+id = "bip39-mnemonic"
+description = "Hardcoded BIP39-shaped mnemonic/seed phrase"
+regex = '''(?i)(mnemonic|seed[_ ]?phrase)\s*[:=]\s*["'][a-z]+( [a-z]+){10,23}["']'''
+tags = ["key", "mnemonic"]
+
+[allowlist]
+regexes = [
+  # Stellar public strkeys are not secrets: G = account, C = contract,
+  # M = muxed account, L = liquidity pool. Only S (secret seed) is sensitive
+  # and is caught by the stellar-secret-key rule above.
+  '''\b[GCML][A-Z2-7]{55}\b''',
+  # The well-known BIP39 test vector ("abandon"x11 + "about") used by
+  # ganache/anvil/local test wallets everywhere. Not a real secret.
+  '''(?i)abandon( abandon){10} about''',
+]
+paths = [
+  '''.*\.lock$''',
+  '''package-lock\.json$''',
+  '''\.env\.example$''',
+  '''docs/.*\.md$''',
+  # Public deployment metadata: contract addresses and wasm build hashes,
+  # never private keys (see the header comment in these files).
+  '''deployments/testnet\.toml(\.[a-z0-9-]+)?$''',
+]

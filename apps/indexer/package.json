@@ -1,0 +1,29 @@
+{
+  "name": "indexer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:smoke": "vitest run src/smoke.e2e.test.ts",
+    "bench": "tsx benchmarks/replay-bench.ts && tsx benchmarks/db-query-bench.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.8.0",
+    "@stellar/stellar-sdk": "^16.0.1",
+    "@types/node": "^26.2.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0",
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
+  }
+}

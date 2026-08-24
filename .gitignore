@@ -1,0 +1,74 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+**/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+test-results/
+playwright-report/
+**/playwright/.cache/
+apps/web/e2e/vendor/freighter-extension/
+
+# next.js
+/.next/
+**/.next/
+/out/
+**/out/
+
+# production
+/build
+**/build/
+**/dist/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Rust
+target/
+**/target/
+/apps/web/src/generated/prisma
+*_keys.json
+
+# local/generated data
+dev.db
+history-store.json
+
+# per-run debug bundles from contracts/integration_tests/src/budget_debug.rs
+artifacts/debug/
+contracts/integration_tests/test_snapshots/reentry_differential/
+test-ledger/
+
+# resumable deploy state (contracts/scripts/deploy-testnet-resilient.sh) --
+# local progress tracking only, not part of the public deployment manifest
+deployments/*.state.env
+
+# generated benchmark reports -- baselines (e.g. contracts/benches/baseline.json)
+# are committed, but the latest-run reports under benchmarks/results/ are not
+benchmarks/results/

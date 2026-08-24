@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+  workflow_call: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust-fmt-clippy:
+    name: Rust / fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key-prefix: fmt-clippy
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+        working-directory: contracts
+      - name: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
+        working-directory: contracts
+
+  rust-test:
+    name: Rust / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key-prefix: test
+      - name: cargo test --workspace
+        run: cargo test --workspace --all-features
+        working-directory: contracts
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-test-report
+          path: contracts/target/nextest
+          if-no-files-found: ignore
+
+  rust-audit:
+    name: Rust / cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: audit
+      - name: cargo audit
+        run: cargo audit --file Cargo.lock
+        working-directory: contracts
+
+  rust-build:
+    name: Rust / build release + contracts
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        contract:
+          - { crate: novaire-sy-wrapper, path: sy-wrapper }
+          - { crate: novaire-tokenizer, path: tokenizer }
+          - { crate: novaire-pt-token, path: pt-token }
+          - { crate: novaire-yt-token, path: yt-token }
+          - { crate: novaire-amm, path: amm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: build-${{ matrix.contract.crate }}
+      - name: Build ${{ matrix.contract.crate }} for wasm32
+        run: cargo build --release --target wasm32v1-none -p ${{ matrix.contract.crate }}
+        working-directory: contracts
+      # Soroban's VM rejects float instructions outright. A float reaching a
+      # release build yields a wasm that is undeployable but passes every other
+      # gate, so this must run on the actual artifact, not the source.
+      - name: Install wabt (wasm-objdump)
+        run: sudo apt-get update && sudo apt-get install -y wabt
+
+      - name: Reject float instructions in ${{ matrix.contract.crate }}
+        run: bash scripts/check-wasm-floats.sh target/wasm32v1-none/release/*.wasm
+        working-directory: contracts
+
+      - name: Upload contract WASM
+        uses: actions/upload-artifact@v7
+        with:
+          name: wasm-${{ matrix.contract.crate }}
+          path: contracts/target/wasm32v1-none/release/*.wasm
+          if-no-files-found: error
+          retention-days: 14
+
+  node-build-test:
+    name: Node / typecheck + lint + test + build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace:
+          - { name: web, path: apps/web }
+          - { name: indexer, path: apps/indexer }
+          - { name: scripts, path: scripts }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+
+      - name: prisma generate
+        if: matrix.workspace.name == 'indexer' || matrix.workspace.name == 'web'
+        run: npx prisma generate --schema=../../prisma/schema.prisma
+        working-directory: ${{ matrix.workspace.path }}
+
+      - name: tsc --noEmit
+        run: npx tsc --noEmit
+        working-directory: ${{ matrix.workspace.path }}
+
+      - name: lint
+        if: matrix.workspace.name == 'web'
+        run: npm run lint -w web
+
+      - name: test (vitest)
+        run: npx vitest run
+        working-directory: ${{ matrix.workspace.path }}
+        continue-on-error: false
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: node-test-report-${{ matrix.workspace.name }}
+          path: |
+            ${{ matrix.workspace.path }}/coverage
+            ${{ matrix.workspace.path }}/test-results
+          if-no-files-found: ignore
+
+      - name: Build web (Next.js)
+        if: matrix.workspace.name == 'web'
+        run: npm run build -w web
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgres://user:pass@localhost:5432/novaire' }}
+          NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_NETWORK: testnet
+          NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+
+      - name: Build indexer
+        if: matrix.workspace.name == 'indexer'
+        run: npm run build --if-present
+        working-directory: apps/indexer
+
+      - name: Upload web build artifact
+        if: matrix.workspace.name == 'web'
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-build
+          path: apps/web/.next
+          retention-days: 7
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [rust-fmt-clippy, rust-test, rust-audit, rust-build, node-build-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any dependency failed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more required CI jobs failed."
+            exit 1
+          fi

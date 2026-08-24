@@ -1,0 +1,126 @@
+name: Protocol Integrity
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/protocol-integrity.yml"
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "contracts/**"
+  workflow_call: {}
+
+concurrency:
+  group: protocol-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Any invariant violation must abort the whole job, not just fail a single test.
+  RUST_BACKTRACE: 1
+
+jobs:
+  invariants:
+    name: Invariant suite (${{ matrix.suite.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        suite:
+          - { name: "PT/YT accounting",      filter: "pt_yt" }
+          - { name: "Tokenization",          filter: "tokeniz" }
+          - { name: "Untokenization",        filter: "untokeniz" }
+          - { name: "Redemption",            filter: "redeem" }
+          - { name: "Settlement",            filter: "settle" }
+          - { name: "b_rate accounting",     filter: "rate" }
+          - { name: "Yield / APY",           filter: "yield" }
+          - { name: "Full invariant module", filter: "invariant" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: protocol-${{ matrix.suite.filter }}
+
+      # Named gate for the safety properties that must never silently regress.
+      # These are ordinary tests and also run in the full sweep below, but
+      # calling them out means a break names itself in the job log instead of
+      # hiding among 160 other results.
+      - name: Safety invariants (pause never traps funds; swaps never overcharge)
+        run: |
+          set -euo pipefail
+          cargo test --workspace --all-features -- --exact \
+            test::pause_blocks_deposits_but_never_redemptions \
+            test::pause_blocks_entries_but_never_lets_lps_get_stuck \
+            test::pause_blocks_split_only \
+            test::saturated_pt_buy_charges_only_the_curve_cost \
+            test::pt_buy_charge_equals_quoted_cost_at_every_size \
+            test::pt_buy_effective_price_never_exceeds_par_plus_fee \
+            test::donated_pt_never_enters_curve_reserves \
+            test::donated_sy_never_enters_curve_reserves \
+            test::emergency_wind_down_recovers_funds_and_keeps_redemption_open
+        working-directory: contracts
+
+      - name: cargo test -p integration_tests (${{ matrix.suite.filter }})
+        run: cargo test -p integration_tests ${{ matrix.suite.filter }} --all-features -- --nocapture
+        working-directory: contracts
+
+  full-workspace-tests:
+    name: Full contract workspace test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: protocol-full
+
+      - name: cargo test --workspace (fail on first invariant break)
+        run: cargo test --workspace --all-features -- --nocapture
+        working-directory: contracts
+
+      - name: Scan test output for accounting anomalies (NaN / Infinity / duplicate accounting)
+        run: |
+          set -euo pipefail
+          cargo test --workspace --all-features -- --nocapture 2>&1 | tee /tmp/test-output.log
+          if grep -Eiq '(^|[^A-Za-z])(nan|inf|infinity)([^A-Za-z]|$)' /tmp/test-output.log; then
+            echo "::error::Detected NaN/Infinity in test output — accounting invariant violation."
+            exit 1
+          fi
+        working-directory: contracts
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: protocol-integrity-log
+          path: /tmp/test-output.log
+          if-no-files-found: ignore
+
+  portfolio-and-allocation:
+    name: Portfolio accounting / allocation == 100%
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+
+      - name: Run portfolioService/protocolService accounting tests
+        run: npx vitest run src/services/protocolService.test.ts src/utils/yield.test.ts
+        working-directory: apps/web
+
+  gate:
+    name: Protocol Integrity gate
+    if: always()
+    needs: [invariants, full-workspace-tests, portfolio-and-allocation]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on any invariant violation
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Protocol invariant violation detected. See docs/PROTOCOL_INVARIANTS.md."
+            exit 1
+          fi

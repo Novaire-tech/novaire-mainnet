@@ -1,0 +1,44 @@
+---
+title: "Testing"
+description: "How to run each layer of the test suite locally."
+---
+
+## Contract tests
+
+```bash
+npm run contracts:test          # cargo test --workspace, from contracts/
+cd contracts && cargo test -p integration_tests   # just the cross-contract suite
+```
+
+## Frontend / script tests
+
+```bash
+npm run test:scripts            # vitest, standalone scripts/ workspace
+```
+
+`apps/web` and `apps/indexer` each have their own test setups reachable via their workspace (`npm run <cmd> -w web` / `-w indexer`) — not surfaced as root-level scripts beyond `lint`/`build`/`dev`/`start`.
+
+## Live testnet verification
+
+```bash
+npm run verify:testnet          # tsx scripts/verify-testnet.ts
+```
+
+<Warning>
+This creates real funded testnet wallets and submits real signed transactions. It is not a mock and not free of real (testnet) network interaction. See [E2E Tests](/testing/e2e-tests) and [Blend Testing](/testing/blend-testing) for what it does and doesn't prove, and its current CI gating status.
+</Warning>
+
+## Reproducing CI locally
+
+```bash
+cd contracts
+cargo fmt --all --check
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace --all-features
+cargo audit --file Cargo.lock
+cargo build --release --target wasm32v1-none
+```
+
+This matches `ci.yml`'s `rust-fmt-clippy`/`rust-test`/`rust-audit`/`rust-build` jobs.
+
+<Card title="Debugging" href="/developers/debugging">What to do when a test or transaction fails.</Card>

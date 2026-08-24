@@ -1,0 +1,52 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-bench:
+    name: Contract cost benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key-prefix: benchmark
+      - name: Run contract cost benchmarks
+        working-directory: contracts
+        run: make bench
+      - name: Check for cost regressions vs baseline
+        id: check
+        working-directory: contracts
+        run: make bench-check
+        continue-on-error: true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: contracts-benchmark-report
+          path: benchmarks/results/contracts-latest.json
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "# Contract Benchmark Report"
+            echo
+            echo "Regression check (10% threshold vs \`contracts/benches/baseline.json\`): \
+              ${{ steps.check.outcome == 'success' && 'passed' || 'regressions found (non-blocking)' }}"
+            echo
+            echo '```'
+            cat benchmarks/results/contracts-latest.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Non-blocking for this first pass: the regression check runs and is
+      # visible in the summary/artifact, but does not fail the workflow.

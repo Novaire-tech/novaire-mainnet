@@ -1,0 +1,59 @@
+---
+title: "Debugging"
+description: "Practical debugging flows, with exact repository paths."
+---
+
+## Soroban VM resource-budget failures
+
+If you hit `Memory(OutOfBoundsGrowth)`, `CpuLimitExceeded`, or similar Soroban VM errors:
+
+- Instrumentation lives in `contracts/integration_tests/src/budget_debug.rs` and `reproduce.rs`.
+- Failure bundles are written to `artifacts/debug/<label>-<ts>/{budget,events,context,panic}.txt`.
+- For a real-testnet transaction, reproduce locally via `stellar tx simulate` or `scripts/verify-testnet.ts`.
+
+## SY exchange rate
+
+```
+sy-wrapper (exchange_rate())
+   ↓
+blend-adapter::derived_exchange_rate(aum, total_supply)
+   ↓
+blend-adapter::assets_from_b_tokens(b_tokens, b_rate)
+   ↓
+sy-wrapper reads positions.supply[reserve_index] + reserve.data.b_rate via BlendPoolClient
+```
+
+Files to inspect: `contracts/sy-wrapper/src/lib.rs` (the AUM-derivation function and `exchange_rate` entrypoint), `contracts/blend-adapter/src/lib.rs` (`derived_exchange_rate`, `assets_from_b_tokens`). If the rate looks wrong, first check whether `InvalidBlendReserve` is being panicked (a Blend reserve reindex not yet migrated) — see [SY](/protocol/sy) and [Access Control](/security/access-control).
+
+## AMM pricing
+
+```
+amm.quote_*() / amm.swap_*()
+   ↓
+sy_rate_or_panic() → sy-wrapper.exchange_rate()
+   ↓
+get_rate_scalar_or_panic / get_rate_anchor_or_panic (curve recalibration)
+   ↓
+get_exchange_rate_or_panic (proportion, logit, curve formula)
+   ↓
+exact_pt_in_sy_out / exact_pt_out_sy_in / solve_yt_out_for_sy_in (fee applied, SY conversion)
+```
+
+Files to inspect: `contracts/amm/src/lib.rs`. If a swap reverts with `ExchangeRateBelowOne` or `MarketProportionTooHigh`, that's the curve's own guard rails, not a bug by default — see [AMM](/protocol/amm) for what each means and [Known Findings](/security/known-findings) for the one investigated `ExchangeRateBelowOne` report.
+
+## Blend
+
+```
+sy-wrapper (holds pool address + reserve_index)
+   ↓
+BlendPoolClient::get_reserve_list / get_reserve / get_positions
+   ↓
+positions.supply[reserve_index]  →  bTokens
+reserve.data.b_rate              →  Blend's 12-decimal rate
+   ↓
+assets_from_b_tokens → AUM
+```
+
+Files to inspect: `contracts/blend-adapter/src/lib.rs` (types: `Positions`, `Reserve`, `ReserveData`). To debug against real Blend state, use `scripts/verify-testnet.ts` rather than the unit-test mock — the mock will only ever report what a test told it to.
+
+<Card title="Testing" href="/developers/testing" />

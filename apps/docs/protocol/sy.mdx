@@ -1,0 +1,58 @@
+---
+title: "SY (Standardized Yield)"
+description: "sy-wrapper: what SY represents, how its exchange rate is derived, and its units."
+---
+
+## What SY represents
+
+SY is a fungible, transferable share of a single underlying yield-bearing position — currently, USDC supplied into a Blend Capital lending pool. It implements the `StandardizedYield` trait (`shared/types/src/lib.rs`): `deposit`, `redeem`, `exchange_rate`, `underlying`, `accrued_yield`.
+
+## SY units vs. underlying asset units
+
+<Tabs>
+  <Tab title="Underlying asset units">
+    Native USDC, 7 decimals (`sy-wrapper::DECIMALS = 7`, matching the underlying token's own decimals).
+  </Tab>
+  <Tab title="SY units">
+    Shares of `sy-wrapper`'s `TotalSupply`. Not 1:1 with underlying. Converting between them always goes through `exchange_rate()`.
+  </Tab>
+</Tabs>
+
+```
+underlying_amount = sy_amount * exchange_rate / WAD
+sy_amount         = underlying_amount * WAD / exchange_rate
+```
+
+`WAD = 10^18` is the fixed-point scale used throughout (`sy-wrapper/src/lib.rs`, `blend-adapter/src/lib.rs`).
+
+## Exchange rate derivation
+
+```
+exchange_rate = derived_exchange_rate(aum, total_supply)
+              = aum * WAD / total_supply     (or WAD if total_supply == 0)
+```
+
+`aum` (assets under management, in underlying-asset units) is **not stored** — it's recomputed on every call from the live Blend pool position:
+
+```
+aum = assets_from_b_tokens(b_tokens, reserve.data.b_rate)
+    = floor(b_tokens * b_rate / 10^12)
+```
+
+`b_tokens` comes from reading `positions.supply` at the contract's stored `reserve_index` against the pool's current reserve list. If the pool's live reserve index no longer matches what `sy-wrapper` has stored (a Blend reserve re-indexing event), the call panics with `InvalidBlendReserve` rather than silently mispricing — this fails closed. Recovery is `migrate_reserve_index` (admin-gated, but self-verifying — see [Access Control](/security/access-control)).
+
+Full details on the Blend side of this in [Blend Integration](/protocol/blend-integration).
+
+## Deposit and redemption
+
+**Deposit**: transfer underlying in, supply it to Blend, then mint SY shares against the *actual* post-Blend AUM delta — not the raw transferred amount. This avoids rate dilution from bToken rounding on Blend's side.
+
+**Redemption**: burn SY shares, withdraw the corresponding underlying amount from Blend, transfer it out. If Blend's withdrawal is only partially tolerated (e.g. a liquidity constraint on Blend's side), this surfaces rather than being silently absorbed — see the `redeem_surfaces_tolerated_withdrawal_failure` integration test in [Integration Tests](/testing/integration-tests).
+
+## Accounting: Principal tracking
+
+`sy-wrapper` separately tracks `Principal(Address): i128` — the underlying-asset-denominated amount a holder has deposited, used purely for yield display (`accrued_yield`). On transfer, principal moves pro-rata with the SY shares transferred, so yield attribution stays correct across transfers rather than sticking with the original depositor.
+
+## Rate monotonicity
+
+Under normal Blend operation there is no lever — admin or otherwise — that lowers the exchange rate. It rises as Blend interest accrues and starts at exactly `WAD`. This is a property of the current implementation (no rate-of-change limiter exists, and none is needed for monotonicity under honest-Blend assumptions), not an enforced on-chain invariant against a misbehaving pool — see [Threat Model](/security/threat-model) for what happens if that assumption breaks.

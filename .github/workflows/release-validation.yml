@@ -1,0 +1,119 @@
+name: Release Validation
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      run_verify_testnet:
+        description: "Run live verify:testnet against Testnet as part of the gate"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Full CI
+    uses: ./.github/workflows/ci.yml
+
+  protocol-integrity:
+    name: Protocol integrity
+    uses: ./.github/workflows/protocol-integrity.yml
+
+  security:
+    name: Security
+    uses: ./.github/workflows/security.yml
+
+  deployment-validation:
+    name: Deployment validation
+    uses: ./.github/workflows/deployment-validation.yml
+
+  verify-testnet:
+    name: verify:testnet
+    if: github.event_name == 'release' || inputs.run_verify_testnet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETWORK: testnet
+      RPC_URL: ${{ secrets.TESTNET_RPC }}
+      NETWORK_PASSPHRASE: ${{ secrets.NETWORK_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node
+      - id: verify
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          npm run verify:testnet 2>&1 | tee artifacts/verify-testnet-report.md
+        continue-on-error: true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-verify-testnet-report
+          path: artifacts/verify-testnet-report.md
+      - if: steps.verify.outcome == 'failure'
+        run: exit 1
+
+  validation-report:
+    name: Generate release-validation.md / deployment-summary.md
+    if: always()
+    needs: [ci, protocol-integrity, security, deployment-validation, verify-testnet]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build release-validation.md
+        run: |
+          {
+            echo "# Release Validation Report"
+            echo
+            echo "Release: \`${{ github.ref_name }}\` — generated $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "| Gate | Result |"
+            echo "|---|---|"
+            echo "| CI (build/test/lint) | ${{ needs.ci.result }} |"
+            echo "| Protocol integrity | ${{ needs.protocol-integrity.result }} |"
+            echo "| Security | ${{ needs.security.result }} |"
+            echo "| Deployment validation | ${{ needs.deployment-validation.result }} |"
+            echo "| verify:testnet | ${{ needs.verify-testnet.result }} |"
+            echo
+            if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+              echo "**BLOCKER(S) FOUND — this release must not ship until all gates pass.**"
+            else
+              echo "**All gates passed.**"
+            fi
+          } | tee release-validation.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build deployment-summary.md
+        run: |
+          {
+            echo "# Deployment Summary"
+            echo
+            echo "Ref: \`${{ github.sha }}\`"
+            echo "Trigger: ${{ github.event_name }}"
+            echo
+            echo "## Testnet deployment"
+            if [[ -f apps/web/src/config/deployments.testnet.json ]]; then
+              echo '```json'
+              cat apps/web/src/config/deployments.testnet.json
+              echo '```'
+            else
+              echo "_apps/web/src/config/deployments.testnet.json not present in this ref._"
+            fi
+          } > deployment-summary.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-validation-reports
+          path: |
+            release-validation.md
+            deployment-summary.md
+
+      - name: Fail release on any blocker
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Release validation failed — see release-validation.md"
+            exit 1
+          fi

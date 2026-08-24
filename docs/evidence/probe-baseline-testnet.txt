@@ -1,0 +1,39 @@
+network : Test SDF Network ; September 2015
+rpc     : https://soroban-testnet.stellar.org
+source  : GAC4JGXGFODRPKRJ7OZM3IIG3MUF73D2DCJPM3SWTSZXAEPRX4EZNNJU
+sy_wrapper : CB4LNG5GQEEACNEOYTXX533BVUXJ6ET2MSVHLUO2WZPWFVJ2DSQ52MS6
+pt_token   : CAXX2VMEMSC2C4NMC3C75LJERLSQIMXLTUCA5AVY2N4SEBGAB3PV5NJ4
+yt_token   : CBJNHGM6J64PS2ZLB4YNTQ7OENHBYFJI7Z4JXKE4FDCAHP3DBIZAVVCH
+tokenizer  : CA26BB3KXS4XCY3SSAHTBSFXZYI46Q2L4X4H56IVBCLYBVAJVAABJM3L
+amm        : CC4RS662LACJ6JBRJPZGKTVXCOODFGS5MJXKACUCFRFNLZUNMSAWEW5P
+
+=== protocol state ===
+amm.state                   : {"last_ln_implied_rate":"195909333878730541","last_observation":"1787500204","total_lp":"200000000","total_pt":"199638224","total_sy":"200476710","twap_ln_implied_rate":"195909333878730541","warmup_until":"1787502004"}
+amm.reserve_pt              : "199638224"
+amm.reserve_sy              : "200476710"
+amm.total_lp                : "200000000"
+amm.spot_apy                : "1959"
+amm.twap_apy                : "1959"
+amm.twap_warming_up         : false
+amm.maturity                : "1795157455"
+sy_wrapper.exchange_rate    : "1009420966749739676"
+sy_wrapper.total_supply     : "5278416358"
+pt_token.total_supply       : "1600002051"
+yt_token.total_supply       : "1600002051"
+tokenizer.escrowed_sy       : "1598683416"
+tokenizer.is_matured        : false
+tokenizer.maturity_rate     : "0"
+
+=== quote size sweep (units of 1e7; flat column == curve saturation) ===
+ size    |     pt_out (sell PT->SY) |      pt_out (buy) |      yt_out (buy) |      sy_out (sell YT)
+  0.0001 |       0.000095 @0.96198 |       0.000105 @0.96411 |       0.002650 @0.03809 |       0.000003 @0.03533
+  0.0010 |       0.000953 @0.96198 |       0.001047 @0.96392 |       0.026322 @0.03835 |       0.000036 @0.03594
+  0.0100 |       0.009529 @0.96184 |       0.010471 @0.96399 |       0.247518 @0.04078 |       0.000357 @0.03601
+  0.1000 |       0.095187 @0.96084 |       0.104600 @0.96503 |       1.764608 @0.05720 |       0.003469 @0.03502
+  1.0000 |       0.942141 @0.95102 |       1.034803 @0.97547 |       8.109968 @0.12447 |       0.024690 @0.02492
+  4.0000 |       3.642367 @0.91917 |       3.958590 @1.01998 |      16.590762 @0.24337 |                 ERR #17
+  6.0000 |       5.338601 @0.89815 |       3.958590 @1.52997 |      18.447211 @0.32832 |                 ERR #17
+ 10.0000 |       8.463477 @0.85432 |       3.958590 @2.54995 |      18.447211 @0.54719 |                 ERR #17
+ 40.0000 |                 ERR #14 |      3.958590 @10.19980 |      18.447211 @2.18878 |                 ERR #17
+
+PT+YT should sum to ~1.00 at the smallest size (no-arb check).

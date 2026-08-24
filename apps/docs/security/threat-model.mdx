@@ -1,0 +1,41 @@
+---
+title: "Threat Model"
+description: "Threats relevant to the current implementation, per SECURITY.md and the live code."
+---
+
+Sourced from `SECURITY.md`'s "Threat Model Summary," "Trust Assumptions," and "Known Risks" sections (current architecture only — see the migration warning on [Security Model](/security/security-model)).
+
+## In scope, and how each is addressed today
+
+| Threat | Current mitigation | Residual risk |
+|---|---|---|
+| **Unauthorized fund movement** | Every mutating entrypoint requires `require_auth()` from the relevant party; no admin fund-movement path exists | None known beyond standard Soroban auth-framework trust |
+| **Integer overflow/underflow** | All arithmetic uses `checked_*` operations returning `Option`, or explicit wider-precision intermediates (e.g. `tokenizer::split`'s `mul_div_ceil` computes through a 256-bit `I256` intermediate to avoid `i128` overflow) | Standard for Soroban contracts; not independently audited |
+| **AMM first-depositor / donation attack** | `MINIMUM_LIQUIDITY = 1000` burned on first LP mint (standard mitigation pattern) | **No dedicated regression test exists for this specific attack** — `SECURITY.md` describes the equivalent SY-level risk as "likely but not conclusively mitigated" |
+| **TWAP / flash-loan manipulation of implied rate** | `sync_twap()` snaps and re-enters warm-up after any idle gap `>= twap_window`, rather than blending in a stale-then-manipulated observation | Spot rate (`spot_apy`) remains manipulable within a single transaction by design — consumers must use TWAP, not spot, for anything requiring manipulation resistance |
+| **Storage archival (Soroban TTL expiry)** | All persistent storage entries use bump-based TTL extension on every relevant mutating call, plus permissionless `bump_ttl`/`bump_lp_ttl` keeper functions on the AMM | Requires someone to actually call the bump keepers before expiry on long-idle entries |
+| **Admin rate manipulation** | No such function exists in the current code — asserted directly in `SECURITY.md` and confirmed by reading `sy-wrapper/src/lib.rs` | N/A |
+
+## Out of scope / explicitly accepted trust
+
+- **The external Blend Capital pool** is fully trusted. There is no on-chain bound on how much or how fast Blend's reported `b_rate` can change, and no fallback if Blend misbehaves or is compromised. See [Trust Boundaries](/security/trust-boundaries).
+- **The protocol admin key(s)** are trusted for one-time initialization parameters and the self-verifying `migrate_reserve_index` recovery path — but per [Security Model](/security/security-model), cannot move funds, mint/burn, or change pricing, so the blast radius of a compromised admin key is limited to that recovery function and any not-yet-initialized deployment.
+- **Off-chain infrastructure** (frontend, indexer, RPC providers) is out of scope of the on-chain threat model.
+
+## Known Risks, as documented in `SECURITY.md`
+
+1. **Unbounded external Blend trust** — no rate-of-change limiter exists in the current code.
+2. **No emergency pause mechanism of any kind** exists anywhere in the deployed contracts (`SECURITY.md`'s "Emergency Controls" section).
+3. **sy-wrapper first-depositor inflation attack** — believed mitigated by minimum-liquidity-style reasoning, but "not conclusively mitigated," and **no dedicated regression test exists** for this specific scenario.
+4. **No independent oracle cross-check** on the Blend-derived rate.
+5. **Single-key admin, no multisig or timelock** on the admin address (`SECURITY.md`'s "Upgrade Strategy" section).
+
+## Investigated and closed: "ExchangeRateBelowOne"
+
+`SECURITY.md` has a dedicated section, "Security Note: ExchangeRateBelowOne," documenting a previously reported concern that the AMM's `ExchangeRateBelowOne` panic path could be used as a trading denial-of-service. The documented disposition is that this is **not reproducible in the current implementation or deployment** and requires no protocol change. This reads as a self-conducted investigation recorded in the repo, not an external audit finding — treat it as **UNVERIFIED by a third party**, but documented and closed internally.
+
+## Remediation roadmap (outstanding, per `SECURITY.md`)
+
+`SECURITY.md`'s "Remediation Roadmap" section lists open items under Critical/High/Medium/Low headings, largely test-coverage and process items (e.g. dedicated inflation-attack regression tests, adversarial Blend rate scenarios, a published/monitored security contact) rather than known code defects — no item there is marked as an unresolved Critical or High severity code issue.
+
+<Card title="Known Findings" href="/security/known-findings">What's actually been found and its current status.</Card>

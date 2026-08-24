@@ -1,0 +1,40 @@
+---
+title: "Contract Reference"
+description: "Public interface summary for all five deployed contracts."
+---
+
+<Note>For full behavioral detail, see [Contract Architecture](/architecture/contract-architecture) and the [Protocol](/protocol/sy) section. This page is the flat interface listing, verified against `contracts/*/src/lib.rs` at the current `master` HEAD.</Note>
+
+<Tabs>
+  <Tab title="sy-wrapper">
+    `initialize_blend(admin, underlying, pool)` · `config()` · `share_balance(holder)` · `total_shares()` · `migrate_reserve_index(admin)` · `deposit(from, amount)` · `redeem(from, sy_amount)` · `exchange_rate()` · `underlying()` · `accrued_yield(holder)` · SEP-41: `balance`, `total_supply`, `decimals`, `name`, `symbol`, `allowance`, `approve`, `transfer`, `transfer_from`
+  </Tab>
+  <Tab title="tokenizer">
+    `initialize(admin, sy_token, pt_token, yt_token, maturity)` · `config()` · `maturity()` · `is_matured()` · `observe_rate()` · `freeze_maturity_rate()` · `maturity_rate()` · `preview_split(sy_amount)` · `preview_recombine(pt_amount, yt_amount)` · `position(holder)` · `escrowed_sy()` · `split(from, sy_amount)` · `recombine(from, pt_amount, yt_amount)` · `redeem_at_maturity(from, pt_amount)` · `claim_yield(holder)`
+  </Tab>
+  <Tab title="pt-token">
+    `initialize(admin, tokenizer, sy_token, maturity)` · `config()` · `maturity()` · `is_matured()` · `mint(to, amount)` · `burn(from, amount)` · `burn_from(spender, from, amount)` · SEP-41: `balance`, `total_supply`, `decimals`, `name`, `symbol`, `allowance`, `approve`, `transfer`, `transfer_from`
+  </Tab>
+  <Tab title="yt-token">
+    `initialize(admin, tokenizer, sy_token, maturity)` · `config()` · `maturity()` · `checkpoint(holder)` · `accrued_yield(holder)` · `preview_claim_yield(holder)` · `settle(holder, rate)` · `consume(holder, amount)` · `mint(to, amount)` · `burn(from, amount)` · `burn_settled(from, amount, rate)` · `burn_from(spender, from, amount)` · SEP-41: `balance`, `total_supply`, `decimals`, `name`, `symbol`, `allowance`, `approve`, `transfer`, `transfer_from`
+  </Tab>
+  <Tab title="amm">
+    `initialize(admin, pt_token, sy_token, yt_token, tokenizer, maturity, scalar_root, initial_anchor, fee_bps, twap_window)` · `config()` · `state()` · `reserve_pt()` · `reserve_sy()` · `total_lp()` · `lp_balance(holder)` · `bump_ttl()` · `bump_lp_ttl(holder)` · `quote_pt_for_sy(...)` · `quote_sy_for_pt(...)` · `quote_sy_for_yt(...)` · `quote_yt_for_sy(...)` · `spot_apy()` · `twap_apy()` · `twap_warming_up()` · `swap_pt_for_sy(from, pt_in, min_sy_out)` · `swap_sy_for_pt(from, sy_in, min_pt_out)` · `swap_sy_for_yt(from, sy_in, min_yt_out)` · `swap_yt_for_sy(from, yt_in, min_sy_out)` · `add_liquidity(from, pt_in, sy_in, min_lp_out)` · `remove_liquidity(from, lp_in, min_pt_out, min_sy_out)` · `implied_apy()` · `maturity()`
+  </Tab>
+  <Tab title="blend-adapter (library)">
+    Not a deployed contract — a shared crate. `BlendPool` trait / `BlendPoolClient`: `get_reserve_list`, `get_reserve`, `get_positions`, `submit`. Free functions: `assets_from_b_tokens`, `derived_exchange_rate`, `b_tokens_from_assets`. `MockBlendPool`/`MockBlendPoolClient` exist only under `#[cfg(any(test, feature = "testutils"))]`.
+  </Tab>
+</Tabs>
+
+## Trait definitions (`shared/types`)
+
+- `StandardizedYield` — `deposit`, `redeem`, `exchange_rate`, `underlying`, `accrued_yield` (implemented by `sy-wrapper`)
+- `Market` — `swap_pt_for_sy`, `swap_sy_for_pt`, `swap_sy_for_yt`, `swap_yt_for_sy`, `add_liquidity`, `remove_liquidity`, `implied_apy`, `maturity` (implemented by `amm`)
+
+## No interface exists for
+
+`factory`, `vault`, `marketplace`, `intent_engine`, `maturity_engine`, `rollover` — none of these are deployed contracts in the current architecture.
+
+## Deployed addresses
+
+See [Testnet Deployment](/deployment/testnet) for the current live contract addresses.

@@ -1,0 +1,12 @@
+[
+  {
+    "label": "Wallet A (empty)",
+    "publicKey": "GD5E27KOAIE2GU2H7EZOYMY6A7RD2V34SI2P674QSMQYWMZ76WGDR2KS",
+    "transactions": [],
+    "comparisons": [],
+    "screenshots": [],
+    "consoleErrors": [],
+    "failedRequests": [],
+    "pass": false
+  }
+]

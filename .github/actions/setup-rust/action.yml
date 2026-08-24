@@ -1,0 +1,49 @@
+name: Setup Rust toolchain
+description: Installs Rust with the wasm32v1-none target, clippy, rustfmt, and caches cargo registry/target dirs.
+
+inputs:
+  components:
+    description: Space-separated rustup components to install
+    required: false
+    default: "clippy rustfmt"
+  target:
+    description: Extra compilation target to install
+    required: false
+    default: "wasm32v1-none"
+  cache-key-prefix:
+    description: Extra string mixed into the cache key (job name)
+    required: false
+    default: "rust"
+
+runs:
+  using: composite
+  steps:
+    - name: Install rustup toolchain
+      shell: bash
+      working-directory: contracts
+      run: |
+        # contracts/rust-toolchain.toml pins the channel; run rustup here so
+        # it resolves (and auto-installs) that toolchain instead of "stable",
+        # otherwise components land on the wrong toolchain and cargo fmt/
+        # clippy fail to find them when invoked from contracts/.
+        rustup show
+        for c in ${{ inputs.components }}; do rustup component add "$c"; done
+        rustup target add ${{ inputs.target }}
+
+    - name: Install cargo-audit
+      shell: bash
+      run: |
+        if ! command -v cargo-audit >/dev/null 2>&1; then
+          cargo install cargo-audit --locked
+        fi
+
+    - name: Cache cargo registry and target
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          contracts/target
+        key: ${{ inputs.cache-key-prefix }}-cargo-${{ runner.os }}-${{ hashFiles('contracts/Cargo.lock') }}
+        restore-keys: |
+          ${{ inputs.cache-key-prefix }}-cargo-${{ runner.os }}-

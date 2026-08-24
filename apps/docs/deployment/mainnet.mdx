@@ -1,0 +1,39 @@
+---
+title: "Mainnet Deployment"
+description: "Current status: not deployed. The script exists and does full initialization when explicitly run."
+---
+
+<Warning>
+**No mainnet deployment exists.** There is no mainnet contract address anywhere in this repository. `deployments/` contains only `testnet.toml`. Do not treat anything on this page as evidence of a live mainnet system.
+</Warning>
+
+## What `contracts/scripts/deploy-mainnet.sh` actually does
+
+This script is **safe by default**: it only builds and simulates every operation, printing exact fees, unless invoked with an explicit `--execute-mainnet` flag:
+
+```bash
+./deploy-mainnet.sh                    # dry run: builds + simulates every op, exits
+./deploy-mainnet.sh --execute-mainnet  # after review, actually deploys and initializes
+```
+
+When run with `--execute-mainnet`, it does considerably more than just deploy uninitialized contracts — it also:
+
+- **Requires every mainnet config value explicitly** (`UNDERLYING_ID`, `BLEND_POOL`, `MATURITY`, `SCALAR_ROOT`, `INITIAL_ANCHOR`, `FEE_BPS`, `TWAP_WINDOW`) — there are no testnet-style defaults; a missing variable makes the script `die` immediately rather than silently deploying against a placeholder.
+- **Initializes all five contracts** in the same dependency order as `deploy-testnet-resilient.sh` (SY wrapper → PT/YT → tokenizer → AMM) via `stellar contract invoke`.
+- **Verifies the on-chain Wasm hash matches the uploaded hash** for every contract after deployment, failing (`die`) on any mismatch.
+- **Does not touch `apps/web` or `deployments/$NETWORK.toml`** — it writes its own result file with addresses and init config, and explicitly warns that wiring the frontend/manifest afterward is a separate, manual step.
+
+No private key is hardcoded — it uses whatever identity `stellar keys` has configured (`DEPLOY_IDENTITY`, default `novaire-deployer`).
+
+## What would need to be true first, per this documentation set
+
+Based on [Security Status](/security/security-status) and [Threat Model](/security/threat-model):
+
+- An independent third-party security audit of the current 6-crate architecture (none has been performed).
+- Resolution of the open Medium-priority items in `SECURITY.md`'s Remediation Roadmap (emergency-pause decision, Blend rate-of-change-bound decision, first-depositor inflation test).
+- A decision on admin key management (currently single-key, no multisig/timelock).
+- A real mainnet Blend Capital pool to wrap, with its own reserve index and asset identity verified at `initialize_blend` — and per `SECURITY.md`'s Deployment Verification checklist, manually confirmed against Blend's own published pool registry before use (no on-chain check can distinguish a genuine Blend pool address from a convincing fake).
+
+None of the above is a commitment or roadmap claim from the project — it's simply what this documentation's own Security section identifies as currently open, extrapolated to what mainnet deployment would reasonably require.
+
+<Card title="Testnet Deployment" href="/deployment/testnet">The deployment that actually exists today.</Card>

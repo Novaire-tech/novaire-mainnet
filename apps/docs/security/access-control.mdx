@@ -1,0 +1,44 @@
+---
+title: "Access Control"
+description: "Exactly who can call what, per contract."
+---
+
+## Authorization patterns used
+
+| Pattern | Meaning | Where used |
+|---|---|---|
+| `require_auth()` on a user address | Caller must have signed for this specific invocation | All user-initiated actions: `deposit`, `redeem`, `split`, `recombine`, `swap_*`, `add/remove_liquidity`, `burn`, `transfer` |
+| `require_auth()` on `config.tokenizer` | Only the tokenizer contract can call | `pt-token.mint`; `yt-token.mint`/`settle`/`consume`/`burn_settled` |
+| `require_auth()` on `config.admin` | Only the admin address can call | `sy-wrapper.migrate_reserve_index`; every contract's `initialize` |
+| Permissionless (no auth check) | Anyone can call | `tokenizer.observe_rate`, `tokenizer.freeze_maturity_rate`, `amm.bump_ttl`, `amm.bump_lp_ttl`, all `quote_*`/read-only accessors |
+| Self-authorized cross-contract call | The calling contract authorizes the sub-call on its own behalf, not the user | AMM's flash routes into the tokenizer; tokenizer's mint/burn calls into PT/YT |
+
+## Per-contract table
+
+| Contract | Function | Authorization |
+|---|---|---|
+| `sy-wrapper` | `initialize_blend` | admin |
+| `sy-wrapper` | `migrate_reserve_index` | admin (self-verifying — see below) |
+| `sy-wrapper` | `deposit`, `redeem` | the depositor/redeemer |
+| `sy-wrapper` | `transfer`, `approve` | the token holder |
+| `tokenizer` | `initialize` | admin |
+| `tokenizer` | `split`, `recombine`, `redeem_at_maturity`, `claim_yield` | the acting holder |
+| `tokenizer` | `observe_rate`, `freeze_maturity_rate` | none (permissionless) |
+| `pt-token` | `initialize` | admin |
+| `pt-token` | `mint` | tokenizer only |
+| `pt-token` | `burn` | the token holder |
+| `pt-token` | `burn_from` | an approved spender |
+| `yt-token` | `initialize` | admin |
+| `yt-token` | `mint`, `settle`, `consume`, `burn_settled` | tokenizer only |
+| `yt-token` | `burn` | the token holder (self-settles via the tokenizer first) |
+| `amm` | `initialize` | admin |
+| `amm` | `swap_*`, `add_liquidity`, `remove_liquidity` | the acting trader/LP |
+| `amm` | `bump_ttl`, `bump_lp_ttl` | none (permissionless keepers) |
+
+## Why `migrate_reserve_index` is safe despite being admin-only
+
+It's the single most security-relevant admin function in the system, so it's worth being explicit: the function does not trust an admin-supplied reserve index. It re-derives the correct index from the Blend pool's live reserve list and verifies the underlying asset identity still matches before accepting the migration. An admin (or a compromised admin key) cannot use this function to redirect `sy-wrapper` at a different pool or asset — it can only be used to correctly recover from a real Blend-side re-indexing event. This function's test coverage (including its rejection paths for non-admin callers, missing underlying, and index mismatches) is in [Integration Tests](/testing/integration-tests).
+
+## Auth-widening tests
+
+The integration suite includes dedicated tests that inspect `env.auths()` traces to confirm the AMM's self-authorized flash routes into the tokenizer don't silently require or grant more authorization than the user's single top-level signed swap call. This is a meaningful check for a system with self-authorized internal cross-contract calls: it verifies those internal calls can't be exploited to make a user's signature cover more than they intended.

@@ -1,0 +1,260 @@
+   Compiling novaire-integration-tests v0.1.0 (/Users/debanjannn/Downloads/projects/novaire-testnet/contracts/integration_tests)
+   Compiling novaire-benches v0.1.0 (/Users/debanjannn/Downloads/projects/novaire-testnet/contracts/benches)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.20s
+     Running unittests src/lib.rs (target/debug/deps/novaire_amm-f0c31f1d16c51a56)
+
+running 44 tests
+test test::bump_lp_ttl_extends_idle_lp_balance_ttl ... ok
+test test::first_liquidity_seeds_market_state ... ok
+test test::initialize_rejects_curve_inputs_above_testnet_bounds - should panic ... ok
+test test::bump_ttl_extends_idle_market_instance_ttl ... ok
+test test::initialize_stores_config_and_empty_state ... ok
+test test::add_liquidity_reverts_when_min_lp_out_not_met - should panic ... ok
+test test::add_liquidity_passes_exact_min_lp_out ... ok
+test test::add_liquidity_rejects_after_maturity - should panic ... ok
+test test::liquidity_rejects_amounts_above_testnet_bounds - should panic ... ok
+test test::non_lp_cannot_remove_liquidity - should panic ... ok
+test test::mutating_entrypoints_extend_instance_ttl ... ok
+test test::quote_accessors_reject_matured_market ... ok
+test test::pt_for_sy_quote_reprices_after_sy_rate_move_without_liquidity_change ... ok
+test test::add_liquidity_generous_min_survives_ratio_move ... ok
+test test::quote_accessors_return_typed_errors_before_trade_execution ... ok
+test test::pt_buy_effective_price_never_exceeds_par_plus_fee ... ok
+test test::add_liquidity_min_lp_out_catches_ratio_move_between_quote_and_execution - should panic ... ok
+test test::quote_yt_for_sy_is_below_face ... ok
+test test::quote_sy_for_yt_is_leveraged ... ok
+test test::rate_views_track_warmup_and_zero_at_maturity ... ok
+test test::remove_liquidity_after_maturity_returns_pro_rata_assets ... ok
+test test::quote_yt_accessors_do_not_mutate_state ... ok
+test test::remove_liquidity_returns_pro_rata_assets ... ok
+test test::quote_accessors_match_pt_route_execution_without_mutating_state ... ok
+test test::read_accessors_match_state_and_rate_views ... ok
+test test::remove_liquidity_generous_bounds_pass_after_ratio_move ... ok
+test test::pt_buy_charge_equals_quoted_cost_at_every_size ... ok
+test test::same_timestamp_swaps_do_not_overwrite_twap ... ok
+test test::remove_liquidity_reverts_when_min_pt_out_not_met - should panic ... ok
+test test::swap_pt_for_sy_rejects_after_maturity - should panic ... ok
+test test::remove_liquidity_reverts_when_min_sy_out_not_met - should panic ... ok
+test test::swap_pt_for_sy_updates_reserves_and_observation ... ok
+test test::round_trip_sy_to_pt_to_sy_conserves_value_at_nonpar_rate ... ok
+test test::saturated_pt_buy_charges_only_the_curve_cost ... ok
+test test::swap_yt_for_sy_rejects_after_maturity - should panic ... ok
+test test::pt_for_sy_quote_falls_monotonically_as_sy_rate_rises ... ok
+test test::swap_sy_for_yt_rejects_after_maturity - should panic ... ok
+test test::swap_pt_for_sy_executes_fewer_sy_shares_at_appreciated_rate ... ok
+test test::swap_sy_for_pt_rejects_after_maturity - should panic ... ok
+test test::swap_sy_for_pt_updates_reserves_and_observation ... ok
+test test::twap_re_enters_warmup_after_an_idle_gap_snaps_it ... ok
+test test::yt_quote_reprices_after_sy_rate_move ... ok
+test test::sy_exact_in_swaps_credit_only_the_charged_amount_to_reserves ... ok
+test test::pt_yt_sy_invariant_holds_across_random_sequences has been running for over 60 seconds
+test test::pt_yt_sy_invariant_holds_across_random_sequences ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 273.83s
+
+     Running unittests src/main.rs (target/debug/deps/benches-5cdbeff05c40732f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_blend_adapter-98a29e2fd011df62)
+
+running 9 tests
+test test::b_tokens_convert_at_unit_rate_one_to_one ... ok
+test test::b_tokens_convert_with_accrued_interest ... ok
+test test::derived_rate_is_monotonic_as_interest_accrues ... ok
+test test::derived_rate_bootstraps_to_wad_when_empty ... ok
+test test::overflow_is_reported_not_panicked ... ok
+test test::b_tokens_from_assets_inverts_the_conversion ... ok
+test test::derived_rate_reflects_aum_over_supply ... ok
+test test::end_to_end_supply_then_accrual ... ok
+test test::full_accounting_round_trips_and_keeps_rate_honest ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_integration_tests-d60775218eb43f9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/auth_invariants.rs (target/debug/deps/auth_invariants-be1ad589ce36ec69)
+
+running 2 tests
+test flash_route_user_only_signs_the_swap ... ok
+test flash_route_top_level_auth_is_arg_pinned ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/blend_wrapper.rs (target/debug/deps/blend_wrapper-a2cd3a8178484434)
+
+running 7 tests
+test migrate_reserve_index_rejects_when_underlying_absent ... ok
+test exchange_rate_traps_when_the_reserve_index_moves - should panic ... ok
+test migrate_reserve_index_rejects_non_admin ... ok
+test migrate_reserve_index_rejects_on_index_mismatch ... ok
+test migrate_reserve_index_recovers_after_a_reindex ... ok
+test redeem_surfaces_tolerated_withdrawal_failure ... ok
+test blend_supply_rate_growth_yield_claim_and_withdraw_round_trip ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/economics.rs (target/debug/deps/economics-37e0c1beb867da3c)
+
+running 19 tests
+test freeze_ignores_post_maturity_accrual_even_on_late_first_touch ... ok
+test pt_redeems_to_principal_not_share ... ok
+test claim_yield_survives_a_sub_stroop_rate_regression ... ok
+test redeem_allowed_at_exact_maturity ... ok
+test direct_yt_burn_is_observed_by_the_maturity_freeze ... ok
+test banked_yield_becomes_claimable_after_the_rate_recovers ... ok
+test direct_yt_transfer_is_observed_by_the_maturity_freeze ... ok
+test escrow_covers_outstanding_claims ... ok
+test split_rejects_at_exact_maturity - should panic ... ok
+test pt_redeem_and_yt_claim_use_one_frozen_rate_regardless_of_order ... ok
+test redemption_uses_frozen_maturity_rate ... ok
+test unobserved_pre_maturity_tail_freezes_at_the_last_observation ... ok
+test transfer_conserves_yield_through_claims ... ok
+test redemption_is_capped_when_rate_regresses ... ok
+test yt_claim_is_subordinated_when_pt_is_under_covered ... ok
+test split_and_recombine_survive_a_rate_regression ... ok
+test yt_receives_yield_on_claim ... ok
+test yt_claim_takes_only_the_surplus_over_pt_reservation ... ok
+test conservation_holds_across_random_sequences has been running for over 60 seconds
+test conservation_holds_across_random_sequences ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 310.54s
+
+     Running tests/journey.rs (target/debug/deps/journey-6aff272b82755ec7)
+
+running 7 tests
+test amm_wires_to_the_same_market ... ok
+test pt_redeems_one_to_one_after_maturity ... ok
+test split_then_recombine_preserves_sy ... ok
+test amm_swap_round_trip_charges_fees ... ok
+test yt_flash_route_round_trips_through_the_tokenizer ... ok
+test yt_flash_route_accepts_one_share_recombine_dust_window ... ok
+test flash_route_over_mint_dust_stays_a_matched_pair_and_never_panics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.01s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_pt_token-a5b888e7777027a7)
+
+running 10 tests
+test test::initialize_stores_config ... ok
+test test::mint_increases_balance_and_supply ... ok
+test test::mint_requires_the_tokenizer_to_authorize ... ok
+test test::transfer_rejects_insufficient_balance - should panic ... ok
+test test::burn_reduces_balance_and_supply ... ok
+test test::burn_rejects_insufficient_balance - should panic ... ok
+test test::transfer_moves_balance ... ok
+test test::transfer_from_rejects_over_allowance - should panic ... ok
+test test::allowance_entry_ttl_covers_requested_expiration ... ok
+test test::approve_and_transfer_from_spend_allowance ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_shared_types-db57f8276c2a1066)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_sy_wrapper-8f80187557eb6c10)
+
+running 14 tests
+test test::exchange_rate_before_initialize_fails - should panic ... ok
+test test::redeem_before_initialize_fails - should panic ... ok
+test test::accrued_yield_before_initialize_fails - should panic ... ok
+test test::deposit_before_initialize_fails - should panic ... ok
+test test::initialize_blend_requires_a_pool_and_sets_the_initial_rate ... ok
+test test::migrate_reserve_index_rejects_non_admin ... ok
+test test::deposit_pulls_underlying_and_mints_shares_via_pool ... ok
+test test::accrued_yield_tracks_pool_derived_rate_growth ... ok
+test test::redeem_underlying_math_overflow_is_rejected - should panic ... ok
+test test::deposit_share_math_overflow_is_rejected - should panic ... ok
+test test::allowance_entry_ttl_covers_requested_expiration ... ok
+test test::sy_transfers_move_shares ... ok
+test test::transfer_moves_principal_pro_rata_so_yield_stays_correct ... ok
+test test::redeem_returns_underlying_and_reduces_principal ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_tokenizer-eac6d61fe7ac86b0)
+
+running 9 tests
+test test::redeem_at_maturity_before_initialize_fails - should panic ... ok
+test test::split_before_initialize_fails - should panic ... ok
+test test::initialize_rejects_past_maturity - should panic ... ok
+test test::recombine_before_initialize_fails - should panic ... ok
+test test::initialize_stores_config ... ok
+test test::preview_split_rejects_matured_market - should panic ... ok
+test test::preview_recombine_rejects_mismatched_pt_and_yt - should panic ... ok
+test test::preview_split_returns_equal_pt_and_yt ... ok
+test test::observe_rate_after_maturity_delegates_to_freeze_instead_of_erroring ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/lib.rs (target/debug/deps/novaire_yt_token-928d129f3d2e80c5)
+
+running 14 tests
+test test::mint_extends_instance_ttl ... ok
+test test::first_claim_at_mint_rate_accrues_nothing ... ok
+test test::mint_increases_balance_and_supply ... ok
+test test::burn_settled_is_gated_on_the_tokenizer ... ok
+test test::consume_more_than_banked_is_rejected - should panic ... ok
+test test::claim_banks_yield_using_the_telescoping_formula ... ok
+test test::burn_reduces_balance_and_supply ... ok
+test test::consume_removes_only_the_requested_amount ... ok
+test test::approve_and_transfer_from_spend_allowance ... ok
+test test::allowance_entry_ttl_covers_requested_expiration ... ok
+test test::mint_settles_fresh_holder_to_current_rate ... ok
+test test::transfer_rejects_insufficient_balance - should panic ... ok
+test test::transfer_moves_balance ... ok
+test test::yield_is_conserved_across_a_transfer ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+   Doc-tests novaire_amm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_blend_adapter
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_pt_token
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_shared_types
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_sy_wrapper
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_tokenizer
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests novaire_yt_token
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

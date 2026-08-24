@@ -1,0 +1,46 @@
+---
+title: "Liquidity"
+description: "Adding and removing liquidity from the PT/SY pool."
+---
+
+## Adding liquidity
+
+**First deposit** (pool is empty): LP tokens are minted using a constant-product-style square-root bootstrap, independent of the trading curve itself:
+
+```
+gross_lp = isqrt(pt_in * sy_in)
+lp_out   = gross_lp - MINIMUM_LIQUIDITY   // MINIMUM_LIQUIDITY = 1000, permanently burned
+```
+
+The initial `last_ln_implied_rate` is set from the curve evaluated at this seed ratio, so the market's implied rate starts consistent with whatever ratio the first LP chose.
+
+**Subsequent deposits** must be proportional to the existing pool:
+
+```
+lp_out = min(pt_in * total_lp / total_pt, sy_in * total_lp / total_sy)
+```
+
+Both `pt_in`/`sy_in` actually consumed are rounded up to match the minted LP share exactly — a depositor can't get more LP than their proportional contribution justifies.
+
+`add_liquidity(from, pt_in, sy_in, min_lp_out)` reverts if the computed `lp_out` is below `min_lp_out` (slippage protection) and reverts entirely after maturity.
+
+## Removing liquidity
+
+Pro-rata, floored:
+
+```
+sy_out = floor(lp_in * total_sy / total_lp)
+pt_out = floor(lp_in * total_pt / total_lp)
+```
+
+`remove_liquidity(from, lp_in, min_pt_out, min_sy_out)` reverts if either output is below its minimum. Removal works both before and after maturity — after maturity, this simply returns pro-rata whatever PT and SY the pool holds at that point (no special post-maturity conversion logic; PT itself is still redeemable separately via the tokenizer).
+
+## What LPs are exposed to
+
+- **Curve risk**: LPs are on the other side of every PT/SY trade priced by the [pricing curve](/protocol/amm) — as the pool's PT proportion moves, LPs' relative exposure to PT vs. SY shifts accordingly, the same structural risk as any AMM LP position.
+- **Fee income**: the entire `fee_bps` fee on every PT⟷SY trade accrues into the pool (and therefore pro-rata to LPs) — there is no separate protocol-fee skim in the current contract.
+- **No YT-specific LP exposure**: because SY⇄YT trades are flash-routed through the PT/SY curve, LPs' exposure from those trades is identical in kind to a PT/SY trade of the equivalent synthesized size — there's no separate YT liquidity pool to reason about.
+
+## Reserve integrity
+
+As with every other mutating AMM entrypoint, `add_liquidity`/`remove_liquidity` end with `reconcile_reserves()`, re-deriving `total_pt`/`total_sy` from actual on-chain token balances rather than trusting the incrementally-computed values. See [AMM](/protocol/amm#reserve-accounting-reconciliation-not-pure-tracking).

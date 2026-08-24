@@ -1,0 +1,367 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Resumable testnet deployment for the novaire protocol (single-market architecture:
+# sy-wrapper, pt-token, yt-token, tokenizer, amm — blend-adapter is a library
+# crate used by sy-wrapper, not a separately deployed contract).
+#
+# - refuses tracked dirty source by default, so a manifest can point to one
+#   committed source revision;
+# - persists every deployed address before moving to the next step so a
+#   failed run can resume;
+# - reuses the persisted underlying SAC address on reruns;
+# - writes deployments/$NETWORK.toml (committed manifest),
+#   apps/web/src/config/deployments.$NETWORK.json (frontend address map),
+#   and apps/web/.env.local (frontend RPC/network config) after success.
+#
+# No private keys are written. State/manifest contain only public contract
+# addresses, the public deployer address, source commit, parameters, and
+# bytecode hashes.
+
+set -euo pipefail
+
+CONTRACTS_DIR="${CONTRACTS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO="${REPO:-$(cd "$CONTRACTS_DIR/.." && pwd)}"
+cd "$CONTRACTS_DIR"
+
+NETWORK="${NETWORK:-testnet}"
+NETWORK_PASSPHRASE="${NETWORK_PASSPHRASE:-Test SDF Network ; September 2015}"
+IDENTITY="${DEPLOY_IDENTITY:-novaire-deployer}"
+WASM_DIR="${WASM_DIR:-target/wasm32v1-none/release/optimized}"
+DEPLOYMENTS_DIR="${DEPLOYMENTS_DIR:-$REPO/deployments}"
+STATE_FILE="${STATE_FILE:-$DEPLOYMENTS_DIR/$NETWORK.state.env}"
+MANIFEST_OUT="${MANIFEST_OUT:-$DEPLOYMENTS_DIR/$NETWORK.toml}"
+FRONTEND_JSON_OUT="${FRONTEND_JSON_OUT:-$REPO/apps/web/src/config/deployments.$NETWORK.json}"
+ENV_OUT="${ENV_OUT:-$REPO/apps/web/.env.local}"
+BLEND_POOL="${BLEND_POOL:-CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF}"
+BLEND_USDC="${BLEND_USDC:-CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU}"
+BLEND_USDC_ASSET="${BLEND_USDC_ASSET:-USDC:GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56}"
+MARKET_ID="${MARKET_ID:-blend-usdc-q3}"
+YIELD_SOURCE_NAME="${YIELD_SOURCE_NAME:-Blend v2 USDC pool}"
+
+SCALAR_ROOT="${SCALAR_ROOT:-2000000000000000000}"
+INITIAL_ANCHOR="${INITIAL_ANCHOR:-1050000000000000000}"
+FEE_BPS="${FEE_BPS:-10}"
+TWAP_WINDOW="${TWAP_WINDOW:-1800}"
+MATURITY="${MATURITY:-$(( $(date -u +%s) + 90 * 86400 ))}"
+
+log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
+die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "$1 not found"
+}
+
+tracked_dirty() {
+  git -C "$REPO" status --porcelain --untracked-files=no
+}
+
+quote_env() {
+  printf '%q' "$1"
+}
+
+save_state() {
+  mkdir -p "$DEPLOYMENTS_DIR"
+  local tmp
+  tmp="$(mktemp "$STATE_FILE.tmp.XXXXXX")"
+  {
+    printf 'DEPLOY_STARTED_AT=%s\n' "$(quote_env "${DEPLOY_STARTED_AT:-}")"
+    printf 'SOURCE_COMMIT=%s\n' "$(quote_env "${SOURCE_COMMIT:-}")"
+    printf 'NETWORK=%s\n' "$(quote_env "$NETWORK")"
+    printf 'NETWORK_PASSPHRASE=%s\n' "$(quote_env "$NETWORK_PASSPHRASE")"
+    printf 'IDENTITY=%s\n' "$(quote_env "$IDENTITY")"
+    printf 'DEPLOYER_ADDRESS=%s\n' "$(quote_env "${DEPLOYER_ADDRESS:-}")"
+    printf 'MATURITY=%s\n' "$(quote_env "$MATURITY")"
+    printf 'SCALAR_ROOT=%s\n' "$(quote_env "$SCALAR_ROOT")"
+    printf 'INITIAL_ANCHOR=%s\n' "$(quote_env "$INITIAL_ANCHOR")"
+    printf 'FEE_BPS=%s\n' "$(quote_env "$FEE_BPS")"
+    printf 'TWAP_WINDOW=%s\n' "$(quote_env "$TWAP_WINDOW")"
+    printf 'BLEND_POOL=%s\n' "$(quote_env "$BLEND_POOL")"
+    printf 'BLEND_USDC_ASSET=%s\n' "$(quote_env "$BLEND_USDC_ASSET")"
+    printf 'UNDERLYING_ID=%s\n' "$(quote_env "${UNDERLYING_ID:-}")"
+    printf 'SY=%s\n' "$(quote_env "${SY:-}")"
+    printf 'PT=%s\n' "$(quote_env "${PT:-}")"
+    printf 'YT=%s\n' "$(quote_env "${YT:-}")"
+    printf 'TK=%s\n' "$(quote_env "${TK:-}")"
+    printf 'AMM=%s\n' "$(quote_env "${AMM:-}")"
+    printf 'INIT_SY=%s\n' "$(quote_env "${INIT_SY:-0}")"
+    printf 'INIT_PT=%s\n' "$(quote_env "${INIT_PT:-0}")"
+    printf 'INIT_YT=%s\n' "$(quote_env "${INIT_YT:-0}")"
+    printf 'INIT_TK=%s\n' "$(quote_env "${INIT_TK:-0}")"
+    printf 'INIT_AMM=%s\n' "$(quote_env "${INIT_AMM:-0}")"
+  } > "$tmp"
+  mv "$tmp" "$STATE_FILE"
+}
+
+load_state() {
+  if [[ -f "$STATE_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$STATE_FILE"
+    log "Loaded deploy state from $STATE_FILE"
+  fi
+}
+
+deploy_wasm_once() {
+  local var_name="$1"
+  local wasm_name="$2"
+  local current="${!var_name:-}"
+
+  if [[ -n "$current" ]]; then
+    log "Reusing $var_name=$current"
+    return
+  fi
+
+  log "Deploying $wasm_name"
+  local deployed
+  deployed="$(stellar contract deploy \
+    --wasm "$WASM_DIR/$wasm_name.wasm" \
+    --source "$IDENTITY" \
+    --network "$NETWORK" 2>/dev/null)"
+  printf -v "$var_name" '%s' "$deployed"
+  save_state
+  log "  $var_name=$deployed"
+}
+
+invoke_once() {
+  local marker="$1"
+  local contract_id="$2"
+  shift 2
+
+  if [[ "${!marker:-0}" == "1" ]]; then
+    log "Skipping already completed init marker $marker"
+    return
+  fi
+
+  stellar contract invoke \
+    --id "$contract_id" \
+    --source "$IDENTITY" \
+    --network "$NETWORK" \
+    -- "$@" >/dev/null
+  printf -v "$marker" '%s' "1"
+  save_state
+}
+
+wasm_hash() {
+  stellar contract info hash --wasm "$1"
+}
+
+onchain_hash() {
+  stellar contract info hash --id "$1" --network "$NETWORK"
+}
+
+write_frontend_env() {
+  log "Writing $ENV_OUT"
+  cat > "$ENV_OUT" <<EOF
+# Generated by contracts/scripts/deploy-testnet-resilient.sh on $DEPLOY_FINISHED_AT. Public values only.
+# Source commit: $SOURCE_COMMIT
+NEXT_PUBLIC_RPC_URL="https://soroban-testnet.stellar.org"
+NEXT_PUBLIC_NETWORK="$([[ "$NETWORK" == "mainnet" ]] && printf 'MAINNET' || printf 'TESTNET')"
+NEXT_PUBLIC_NETWORK_PASSPHRASE="$NETWORK_PASSPHRASE"
+NEXT_PUBLIC_SIMULATION_SOURCE_ADDRESS="$DEPLOYER_ADDRESS"
+NEXT_PUBLIC_MARKET_ID="$MARKET_ID"
+NEXT_PUBLIC_TOKEN_DECIMALS="7"
+NEXT_PUBLIC_YIELD_SOURCE_KIND="blend"
+NEXT_PUBLIC_YIELD_SOURCE_NAME="$YIELD_SOURCE_NAME"
+EOF
+}
+
+write_frontend_json() {
+  log "Writing $FRONTEND_JSON_OUT"
+  mkdir -p "$(dirname "$FRONTEND_JSON_OUT")"
+  cat > "$FRONTEND_JSON_OUT" <<EOF
+{
+  "underlying_token": "$UNDERLYING_ID",
+  "sy_wrapper": "$SY",
+  "pt_token": "$PT",
+  "yt_token": "$YT",
+  "tokenizer": "$TK",
+  "amm": "$AMM"
+}
+EOF
+}
+
+write_manifest() {
+  log "Writing $MANIFEST_OUT"
+  mkdir -p "$DEPLOYMENTS_DIR"
+  cat > "$MANIFEST_OUT" <<EOF
+# Generated by contracts/scripts/deploy-testnet-resilient.sh.
+# Public deployment metadata only. Do not add private keys.
+
+network = "$NETWORK"
+network_passphrase = "$NETWORK_PASSPHRASE"
+source_commit = "$SOURCE_COMMIT"
+deployer_identity = "$IDENTITY"
+deployer_public_key = "$DEPLOYER_ADDRESS"
+deployed_at = "$DEPLOY_FINISHED_AT"
+maturity = $MATURITY
+token_decimals = 7
+yield_source = "blend"
+blend_pool = "$BLEND_POOL"
+underlying_asset = "$BLEND_USDC_ASSET"
+
+[curve]
+scalar_root = "$SCALAR_ROOT"
+initial_anchor = "$INITIAL_ANCHOR"
+fee_bps = $FEE_BPS
+twap_window = $TWAP_WINDOW
+
+[contracts]
+underlying = "$UNDERLYING_ID"
+sy_wrapper = "$SY"
+pt_token = "$PT"
+yt_token = "$YT"
+tokenizer = "$TK"
+amm = "$AMM"
+
+[wasm_hashes]
+sy_wrapper = "$SY_WASM_HASH"
+pt_token = "$PT_WASM_HASH"
+yt_token = "$YT_WASM_HASH"
+tokenizer = "$TK_WASM_HASH"
+amm = "$AMM_WASM_HASH"
+
+[onchain_hashes]
+sy_wrapper = "$SY_CHAIN_HASH"
+pt_token = "$PT_CHAIN_HASH"
+yt_token = "$YT_CHAIN_HASH"
+tokenizer = "$TK_CHAIN_HASH"
+amm = "$AMM_CHAIN_HASH"
+
+[frontend]
+env_file = "apps/web/.env.local"
+deployments_json = "apps/web/src/config/deployments.$NETWORK.json"
+simulation_source = "$DEPLOYER_ADDRESS"
+market_id = "$MARKET_ID"
+yield_source_name = "$YIELD_SOURCE_NAME"
+EOF
+}
+
+generate_bindings() {
+  log "Generating TS bindings"
+  local names=(sy_wrapper pt_token yt_token tokenizer amm)
+  local ids=("$SY" "$PT" "$YT" "$TK" "$AMM")
+  for i in "${!names[@]}"; do
+    local name="${names[$i]}" id="${ids[$i]}"
+    local out_dir="$REPO/packages/bindings/$name"
+    log "  bindings for $name -> $out_dir"
+    stellar contract bindings typescript \
+      --id "$id" \
+      --network "$NETWORK" \
+      --output-dir "$out_dir" \
+      --overwrite >/dev/null
+  done
+}
+
+require_cmd git
+require_cmd cargo
+require_cmd stellar
+
+if [[ "${SKIP_WASM_FLOAT_CHECK:-0}" != "1" ]]; then
+  require_cmd wasm-objdump
+fi
+
+dirty="$(tracked_dirty)"
+if [[ -n "$dirty" && "${ALLOW_DIRTY:-0}" != "1" ]]; then
+  printf '%s\n' "$dirty" >&2
+  die "tracked source is dirty. Commit first or set ALLOW_DIRTY=1 for a non-reproducible dry run"
+fi
+
+CURRENT_SOURCE_COMMIT="$(git -C "$REPO" rev-parse HEAD)"
+load_state
+
+if [[ -n "${SOURCE_COMMIT:-}" && "$SOURCE_COMMIT" != "$CURRENT_SOURCE_COMMIT" ]]; then
+  die "state file was created from $SOURCE_COMMIT, but current source is $CURRENT_SOURCE_COMMIT"
+fi
+
+SOURCE_COMMIT="$CURRENT_SOURCE_COMMIT"
+DEPLOY_STARTED_AT="${DEPLOY_STARTED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+save_state
+
+log "Building optimized deployable Wasm from $SOURCE_COMMIT"
+OPT_WASM_DIR="$WASM_DIR" bash scripts/build-optimized-wasm.sh
+
+SY_WASM_HASH="$(wasm_hash "$WASM_DIR/novaire_sy_wrapper.wasm")"
+PT_WASM_HASH="$(wasm_hash "$WASM_DIR/novaire_pt_token.wasm")"
+YT_WASM_HASH="$(wasm_hash "$WASM_DIR/novaire_yt_token.wasm")"
+TK_WASM_HASH="$(wasm_hash "$WASM_DIR/novaire_tokenizer.wasm")"
+AMM_WASM_HASH="$(wasm_hash "$WASM_DIR/novaire_amm.wasm")"
+
+if ! stellar keys address "$IDENTITY" >/dev/null 2>&1; then
+  log "Generating and funding deployer identity '$IDENTITY' on $NETWORK"
+  stellar keys generate --global "$IDENTITY" --network "$NETWORK" --fund 2>/dev/null \
+    || stellar keys generate "$IDENTITY" --network "$NETWORK" --fund
+fi
+DEPLOYER_ADDRESS="$(stellar keys address "$IDENTITY")"
+save_state
+log "Deployer address: $DEPLOYER_ADDRESS"
+
+if [[ -n "${UNDERLYING:-}" ]]; then
+  UNDERLYING_ID="$UNDERLYING"
+  save_state
+  log "Using provided underlying: $UNDERLYING_ID"
+elif [[ -n "${UNDERLYING_ID:-}" ]]; then
+  log "Reusing underlying from state: $UNDERLYING_ID"
+else
+  UNDERLYING_ID="$BLEND_USDC"
+  save_state
+  log "Using Blend reserve asset as underlying: $UNDERLYING_ID"
+fi
+
+deploy_wasm_once SY novaire_sy_wrapper
+deploy_wasm_once PT novaire_pt_token
+deploy_wasm_once YT novaire_yt_token
+deploy_wasm_once TK novaire_tokenizer
+deploy_wasm_once AMM novaire_amm
+
+log "Initializing SY wrapper"
+invoke_once INIT_SY "$SY" initialize_blend --admin "$DEPLOYER_ADDRESS" --underlying "$UNDERLYING_ID" --pool "$BLEND_POOL"
+
+log "Initializing PT token"
+invoke_once INIT_PT "$PT" initialize --admin "$DEPLOYER_ADDRESS" --tokenizer "$TK" --sy_token "$SY" --maturity "$MATURITY"
+
+log "Initializing YT token"
+invoke_once INIT_YT "$YT" initialize --admin "$DEPLOYER_ADDRESS" --tokenizer "$TK" --sy_token "$SY" --maturity "$MATURITY"
+
+log "Initializing tokenizer"
+invoke_once INIT_TK "$TK" initialize --admin "$DEPLOYER_ADDRESS" --sy_token "$SY" --pt_token "$PT" --yt_token "$YT" --maturity "$MATURITY"
+
+log "Initializing AMM"
+invoke_once INIT_AMM "$AMM" initialize \
+  --admin "$DEPLOYER_ADDRESS" \
+  --pt_token "$PT" \
+  --sy_token "$SY" \
+  --yt_token "$YT" \
+  --tokenizer "$TK" \
+  --maturity "$MATURITY" \
+  --scalar_root "$SCALAR_ROOT" \
+  --initial_anchor "$INITIAL_ANCHOR" \
+  --fee_bps "$FEE_BPS" \
+  --twap_window "$TWAP_WINDOW"
+
+SY_CHAIN_HASH="$(onchain_hash "$SY")"
+PT_CHAIN_HASH="$(onchain_hash "$PT")"
+YT_CHAIN_HASH="$(onchain_hash "$YT")"
+TK_CHAIN_HASH="$(onchain_hash "$TK")"
+AMM_CHAIN_HASH="$(onchain_hash "$AMM")"
+
+[[ "$SY_WASM_HASH" == "$SY_CHAIN_HASH" ]] || die "SY Wasm hash mismatch"
+[[ "$PT_WASM_HASH" == "$PT_CHAIN_HASH" ]] || die "PT Wasm hash mismatch"
+[[ "$YT_WASM_HASH" == "$YT_CHAIN_HASH" ]] || die "YT Wasm hash mismatch"
+[[ "$TK_WASM_HASH" == "$TK_CHAIN_HASH" ]] || die "tokenizer Wasm hash mismatch"
+[[ "$AMM_WASM_HASH" == "$AMM_CHAIN_HASH" ]] || die "AMM Wasm hash mismatch"
+
+DEPLOY_FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+write_frontend_env
+write_frontend_json
+write_manifest
+
+if [[ "${SKIP_BINDINGS:-0}" != "1" ]]; then
+  generate_bindings
+fi
+
+log "Deployment complete"
+log "Manifest: $MANIFEST_OUT"
+log "Frontend env: $ENV_OUT"
+log "Frontend deployments JSON: $FRONTEND_JSON_OUT"
+warn "Review and commit $MANIFEST_OUT and $FRONTEND_JSON_OUT after verifying the deployment. Do not commit $ENV_OUT or $STATE_FILE."

@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.git
+contracts/target
+.vercel
+.env
+.env.*
+history-store.json
+dev.db
+*.log
+artifacts
+docs

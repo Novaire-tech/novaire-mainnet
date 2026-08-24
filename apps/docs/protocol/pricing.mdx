@@ -1,0 +1,32 @@
+---
+title: "Pricing"
+description: "How to read spot APY, TWAP APY, and implied rate — and what each one actually measures."
+---
+
+<Note>The curve math itself is documented in full on the [AMM](/protocol/amm) page. This page is about *interpreting* the numbers the AMM exposes.</Note>
+
+## Three different rate reads
+
+| Function | What it is | Manipulable within one transaction? |
+|---|---|---|
+| `spot_apy()` | The implied rate at the current reserves, right now | Yes — a large trade moves it immediately |
+| `twap_apy()` | Time-weighted blend of implied rate over `twap_window` | No — requires sustained state over time, not a single tx |
+| `implied_apy()` (`Market` trait) | Same as `spot_apy()` | Yes |
+
+The distinction matters for anything that uses the AMM's rate as an input to a decision (display, liquidation threshold, downstream integration) — see [Threat Model](/security/threat-model) for the manipulation surface this implies.
+
+## Warm-up state
+
+`twap_warming_up()` reports whether the TWAP is currently in its post-snap warm-up period. Per [AMM](/protocol/amm#twap), the TWAP re-enters warm-up whenever the gap since the last observation exceeds `twap_window` — meaning a market that's been idle can't be trusted to have a meaningful TWAP the instant it starts trading again. Anything consuming `twap_apy()` should check `twap_warming_up()` first.
+
+## Reading implied rate correctly
+
+`implied_apy`/`spot_apy`/`twap_apy` are all derived from `ln_implied_rate`, which is a **continuously-compounded** annualized rate (see the formula in [AMM](/protocol/amm#implied-rate)) — not a simple/linear APY. Converting it to a simple APY for display requires the appropriate `exp()` transform; treat any value read directly from these functions as continuously-compounded until converted.
+
+## Quote functions don't mutate state
+
+`quote_pt_for_sy`, `quote_sy_for_pt`, `quote_sy_for_yt`, `quote_yt_for_sy` run the same pricing math as the corresponding `swap_*` entrypoints but stop short of moving tokens or updating state — confirmed by dedicated unit tests asserting quote/execution parity without state mutation (see [AMM Tests](/testing/amm-tests)). This makes them safe to call for UI price previews without any transaction cost or state side effect (they're still read-only contract calls, so they can be simulated without submitting a transaction at all).
+
+## No oracle, no external price feed
+
+Every price in the system is internal to the AMM's own curve — there is no external oracle dependency for PT/SY/YT pricing. The only external price-relevant input to the whole system is the Blend-derived SY exchange rate (see [Blend Integration](/protocol/blend-integration)), which is a rate, not a price, and isn't produced by an oracle mechanism at all.
