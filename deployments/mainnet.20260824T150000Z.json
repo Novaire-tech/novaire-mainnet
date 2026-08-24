@@ -1,0 +1,49 @@
+{
+  "network": "mainnet-live",
+  "network_passphrase": "Public Global Stellar Network ; September 2015",
+  "deployer": "GBVW63JALYMT4MDA5HOXUVQIWF7DNNIBOZDA6DVVCTATYYEJBL46T5WA",
+  "underlying": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+  "underlying_asset": "XLM (native)",
+  "blend_pool": "CCCCIQSDILITHMM7PBSLVDT5MISSY7R26MNZXCX4H7J5JQ5FPIYOGYFS",
+  "blend_pool_name": "YieldBloxV2",
+  "maturity": 1803427200,
+  "maturity_human": "2027-02-24T00:00:00Z",
+  "curve": {
+    "scalar_root": "2000000000000000000",
+    "initial_anchor": "1050000000000000000",
+    "fee_bps": 10,
+    "twap_window": 1800
+  },
+  "admin": {
+    "address": "GAZODOSMIYJK4ZY2CZH5XPNHRBUC6VOUTJT7IPC5D7UJMG2UJ3HS7CRA",
+    "type": "multisig_2_of_3",
+    "signers": [
+      "GDKSUHV2XU6XQAB7STCH2LU3ZCUKUDFGKNHFB6QEXTZA4HVG5KCHJMFE",
+      "GBYFFCMYMSYSSTVYVZRNGIGSNGNETXJO33IYADFZJ4LYXGIJZNZMDE2W",
+      "GD375BQBON4B35WIRDAVLCVP466NTRZZ5XK4HHVELYYUJYZ2A52WZNJO"
+    ],
+    "med_threshold": 2,
+    "master_weight": 0,
+    "note": "Signer keys currently generated locally on the deploy machine (~/.config/stellar/identity) as a stopgap. Rotate to hardware-secured keys before real value flows through these contracts."
+  },
+  "guardian": "GAWECSL65ZJUX747DIUEXRTHAQN7FHD4N6B4FLSG6FLDQGQV4JHSXH6D",
+  "contracts": {
+    "sy_wrapper": "CDJZURY6UAXEHF25OFQCFKOIHU7EBMHGDNZGFEMOZSIRU7OMB3AE27KT",
+    "pt_token": "CAYL4A67NB7KX7AT5NRMDQD6CIXH6GH7FETP5SN7JKI4B27QB3BRU4J2",
+    "yt_token": "CA5TTQCSZ6OJRHKWZGYX3H4UUMWJMHE2V2SUTCUKUGR7C6L4TXR6YNFY",
+    "tokenizer": "CDHNZL42APXMQ3FOOP4IOBGNBJOV3733GAZI5OFAWAKFZHWXTE6FGKUJ",
+    "amm": "CASLGK7OGQBATSXXIFUCHU5GU2ERDYOYBYDF5DBWB4YDDRHNVZLHSZQP"
+  },
+  "wasm_hashes": {
+    "sy_wrapper": "c5176887dab900867ba4bc1dc664136ca69d274f97e7440974c87224eb6b0b20",
+    "pt_token": "5cf08bfafba6ea47a0fc68afe998d42e0a25070d780c86fceed0f2f99106df28",
+    "yt_token": "c3fe70f0e0e5d03ee373aaf419010715467a7671fc11c817154d5b32f6cd3ad9",
+    "tokenizer": "b179fbca5929710a1fc9f5e0196f0c1418167aabcb014185b0bb781d039a0e37",
+    "amm": "de0e67cd70cb295d999b3a3b29f0f366aa2d159ce0a2d8755eee8b2879b44fc6"
+  },
+  "onchain_hashes_verified": true,
+  "soroban_sdk_version": "27.0.6",
+  "protocol_version_at_deploy": 27,
+  "initialized": true,
+  "deployer_final_balance_xlm": "55.9682836"
+}

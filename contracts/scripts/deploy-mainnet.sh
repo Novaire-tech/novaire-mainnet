@@ -91,11 +91,14 @@ GUARDIAN_ADDRESS="${GUARDIAN_ADDRESS:-}"
 require_var ADMIN_ADDRESS
 require_var GUARDIAN_ADDRESS
 
-ADMIN_JSON="$(curl -s -m 10 "https://horizon.stellar.org/accounts/$ADMIN_ADDRESS" || true)"
-python3 - "$ADMIN_ADDRESS" <<'PYCHECK' <<<"$ADMIN_JSON" || die "ADMIN_ADDRESS is not a usable multisig — refusing to deploy"
+ADMIN_JSON_FILE="$(mktemp)"
+trap 'rm -f "$ADMIN_JSON_FILE"' EXIT
+curl -s -m 10 "https://horizon.stellar.org/accounts/$ADMIN_ADDRESS" > "$ADMIN_JSON_FILE" || true
+python3 - "$ADMIN_JSON_FILE" <<'PYCHECK' || die "ADMIN_ADDRESS is not a usable multisig — refusing to deploy"
 import json, sys
 try:
-    d = json.load(sys.stdin)
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
 except Exception:
     print("error: could not read admin account from Horizon", file=sys.stderr)
     sys.exit(1)
