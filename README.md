@@ -556,5 +556,5 @@ MIT — see [`LICENSE`](./LICENSE).
 - [Stellar Development Foundation](https://stellar.org) and the [Soroban](https://soroban.stellar.org) smart contract platform.
 - [Blend Capital](https://blend.capital) — the lending pool that powers the SY Wrapper's real yield source on Testnet.
 - [Freighter](https://www.freighter.app/) wallet for Stellar account signing.
-- Built with [Next.js](https://nextjs.org), [Prisma](https://www.prisma.io), and the [Stellar SDK](https://github.com/stellar/js-stellar-sdk).# bhodai
+- Built with [Next.js](https://nextjs.org), [Prisma](https://www.prisma.io), and the [Stellar SDK](https://github.com/stellar/js-stellar-sdk).
 # novaire-mainnet
