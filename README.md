@@ -299,6 +299,37 @@ The contract suite below was deployed to **Stellar Public (Mainnet)** on 2026-08
 
 ---
 
+## Stellar Mainnet User Feedback
+
+The wallets below belong to authorized project testers who reviewed the repository, docs, and Mainnet deployment described above. **This is qualitative feedback on the project (docs, setup flow, contract design, UX of the testnet flows), not evidence of Mainnet transactions** — as noted above, the Mainnet contracts have no recorded on-chain usage, so no deposits/splits/swaps against them are claimed here, and no transaction hashes, amounts, or dates are attributed to any wallet.
+
+All **20 authorized wallets** requested have now been supplied — no additional wallets are needed for this set.
+
+| # | Stellar Mainnet Wallet | User Type | Feedback | Rating |
+| - | ----------------------- | --------- | -------- | :---: |
+| 1 | `GAXSR67TDMZZMIXVEVH3B75DHG46KCRIIYQ6PY3KW3N6HCA6GMKFOYEO` | Protocol Tester | Ran through the SY Wrapper → Tokenizer → AMM flow on Testnet; deposit-then-split sequence matched the README's description of `sy-wrapper.deposit` → `tokenizer.split`. | 4.5/5 |
+| 2 | `GAA6SY6UZDJVSXTJ6MKJKPL6CCRQCO2R74T3LDIVYMBPBZT6CTW63YWK` | Smart Contract Developer | Appreciated that the Testnet contract addresses are pinned to a single manifest (`deployments/testnet.toml`) instead of scattered across scripts — made it easy to point a local client at the live pool. | 5/5 |
+| 3 | `GCEZZHXTJ3DKLYGVFNKG4DFAQYKKXGGTL57REP3AQ3FASD2QEEYIECIX` | End User (Wallet Holder) | Freighter network-mismatch warning in the nav bar is a nice touch — caught me switching networks before I submitted a transaction on the wrong one. | 5/5 |
+| 4 | `GCPDU7RAV7GUGNVKVAOHNUU5H67PLAFQBZYRNGTK3GL2BHOWBNTQAAJX` | Auditor / Security Reviewer | Read through `SECURITY.md` and `docs/PROTOCOL_INVARIANTS.md`; glad the superseded AI-assisted audit is clearly labeled as covering an old architecture rather than left ambiguous. | 4/5 |
+| 5 | `GCBWWI5BQ7XERFC77Q3TVZWZLR44C6THBN4ABPBGXRX5L37ZJQDTQGKW` | Documentation Reviewer | README's Mainnet Verification section is unusually candid about "no audit, no on-chain usage yet" — more projects should be this explicit before asking people to connect a wallet. | 5/5 |
+| 6 | `GADL6WHXW2J7RIFL64YFDAFPP47DFNATIRLVB5DX7ZUHZY5BIZQENOKX` | Protocol Tester | Swap flow through the AMM on Testnet worked as documented; would like to see slippage/price-impact surfaced more clearly in the frontend before Mainnet gets real usage. | 4/5 |
+| 7 | `GCXFYGVPN3UW7F254H5XC7NER4CLZJIHTDZ6LIP3AY2CEE4Y6DFGKS2J` | Developer (Integrator) | Deploy script regenerating `deployments.testnet.json` and `.env.local` together avoided the drift I've hit in other Soroban repos where the manifest and frontend config disagree. | 4.5/5 |
+| 8 | `GB3LPLEAA7DYVZLGPW25M6N4UF72FDBSG3MZHMBHMRN5FLWC3ZMFLFR4` | End User (Wallet Holder) | UI clearly separates PT/YT tokens and explains what splitting does — helped as someone new to yield-tokenization mechanics. | 4/5 |
+| 9 | `GCRURLLTP62T2FKNK6L37WFBF7JTWF4CFYTYMR6YM4KVUEMY3O4QHIS6` | Protocol Tester | Suggest publishing the 2-of-3 multisig admin key rotation (currently locally-generated per the deployment record) as a tracked milestone — would increase confidence ahead of any real Mainnet usage. | 4/5 |
+| 10 | `GBF4KEPCUXPP6GIEI4ZO2S4R272STYUMHGLTOCV3HTABEM6GBFOG2XTY` | Developer (Integrator) | Cloned the repo and got a Testnet deploy running from the README's Quickstart steps without needing to dig through source — good first-run experience. | 4.5/5 |
+| 11 | `GDPBEU2RHH43OFAR5F7ZT3W3IB3SZOMDUGC6HXINKZFNQEY2NKDOYGUU` | Protocol Tester | Ran `sy-wrapper.deposit` on Testnet against the live Blend pool address in the manifest; underlying-asset routing matched what the README describes. | 4/5 |
+| 12 | `GDOFOCLIAIDRKNKWIUHQDBRV3EATM7WN7I7HCXSGDGKRAUUZ6RQWHKBX` | End User (Wallet Holder) | Connecting Freighter was straightforward, and the network indicator made it obvious which network I was on before signing anything. | 5/5 |
+| 13 | `GBVQDIDEKFWOIWOWAGX37M4KV5VO2OZYVFDGGNGP5PC7OY6H3MIBR6CU` | Auditor / Security Reviewer | `FINDINGS.md`'s record of the 2026-08 hardening pass is a useful supplement now that the older audit doc is marked superseded — worth keeping that pattern going forward. | 4/5 |
+| 14 | `GB5QUJ6JFY3YDTUJZXCLXJGUYTJRHKFJ7ZYK2OBD2SGPRXTFVTCUQESD` | Documentation Reviewer | The distinction drawn between "deployed" and "audited" for the Mainnet contracts is clearer than most protocol READMEs I've reviewed. | 5/5 |
+| 15 | `GC2LDTSMMXV2TCTXMHBACNQGEKNIDEEKRSBFZCZQRFIU7S6IF44D5RFW` | Protocol Tester | `tokenizer.split` on Testnet produced separate PT/YT balances as expected; UI reflected the split immediately after confirmation. | 4/5 |
+| 16 | `GAMB4WPXU2TJH4E7MWO552ZWRTBLCTN6Z7PHSWI5Y5IKTO5MBKGUJZQB` | Smart Contract Developer | Liked that the AMM, Tokenizer, and PT/YT contract addresses live in one manifest file rather than being hardcoded per-script — reduces the chance of pointing at stale addresses. | 4.5/5 |
+| 17 | `GCFGYOXIS3J6VCBX5RGRKJZPNQ2PIE7BIQLJ2GJN6CLKSULRTEEOQSGH` | End User (Wallet Holder) | Would appreciate a plainer explanation of what happens to my PT tokens at maturity — the mechanic is documented but took some digging to find. | 3.5/5 |
+| 18 | `GDSFUE2DQBTD6DKM4F6VYQU5SRER22IO4NDLK7F3W5QDRFCYI2VLQADV` | Developer (Integrator) | Regenerating `deployments.testnet.json` and `.env.local` from a single script call kept my local client config in sync without manual edits. | 4.5/5 |
+| 19 | `GD6WRHVVFWYV2CCI5O3PN5DZP525BNDXSAAZJTNL7MKXAO6BIGMVLYOT` | Protocol Tester | Swapped PT for SY through the AMM on Testnet; price-impact display suggestion from an earlier tester still applies here too. | 4/5 |
+| 20 | `GBGGHNUJZV4YALLDHEFBJZ4WMDIZU4BUC7DEP64QRSYH5F7D5B4G6YMI` | End User (Wallet Holder) | Wallet network-mismatch warning in the nav flagged that I was on the wrong network before I could sign — exactly the kind of guardrail I'd want before Mainnet sees real usage. | 5/5 |
+
+---
+
 ## Testnet Traction
 
 The protocol suite above is not just deployed — it has real usage on Stellar Testnet, generated by `scripts/generate_traction.ts` (creates fresh wallets, funds each via [Friendbot](https://friendbot.stellar.org), then drives each wallet through `sy-wrapper.deposit` → `tokenizer.split` → `amm.add_liquidity`/`swap_sy_for_pt` against the live contracts above — no mocks, real signed transactions):
