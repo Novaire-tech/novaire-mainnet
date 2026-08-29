@@ -131,7 +131,7 @@ Novaire/
 │       └── deploy-testnet-resilient.sh  # Main deployment script (builds, deploys, wires, binds)
 ├── scripts/                       # Deployment / bootstrap / verification TS scripts
 │   ├── deployments.testnet.json   # Current testnet deployment record
-│   └── deployments.mainnet.json   # Historical/reference only — NOT a verified deployment
+│   └── deployments.mainnet.json   # Records an actual, unaudited Mainnet deployment — see Mainnet Verification
 ├── prisma/                        # Postgres schema (schema-only at runtime today)
 ├── docs/                          # Protocol/architecture deep docs + CONTRACTS.md
 ├── .github/workflows/             # CI/CD — see .github/workflows/README.md and CI.md
@@ -274,7 +274,28 @@ Notes:
 - The SY Wrapper deposits into Blend's live Testnet lending pool (`CCEBVDYM32...`), and the underlying token is the pool's reserve asset (native XLM SAC), so wrapped deposit funds route into Blend correctly. In frontend config this address is (mis)named `MOCK_USDC` — a legacy label; it is the native XLM SAC.
 - Older deployment instances predating this manifest format are no longer tracked in-repo; only `deployments/testnet.toml` is current. **Do not reuse addresses from outside that file.**
 - After any redeploy, `contracts/scripts/deploy-testnet-resilient.sh` regenerates `deployments/testnet.toml`, `apps/web/src/config/deployments.testnet.json`, and `apps/web/.env.local` together — don't hand-edit any of them individually.
-- `scripts/deployments.mainnet.json` contains a full set of addresses, but per this project's testnet-only status, treat that file as a historical/reference record rather than a live, supported Mainnet deployment.
+- `scripts/deployments.mainnet.json` / `deployments/mainnet.20260824T150000Z.json` record an actual Mainnet deployment (see [Mainnet Verification](#mainnet-verification) below) — it is **not** merely a historical/reference file, but it is also **not audited**; treat it as unaudited infrastructure, not a go-ahead to route real value through it.
+
+---
+
+## Mainnet Verification
+
+The contract suite below was deployed to **Stellar Public (Mainnet)** on 2026-08-24, per commit [`00d535c`](../../commit/00d535c909f84e4ebddd34e75161f8a2f2d0268b) and the deployment record at [`deployments/mainnet.20260824T150000Z.json`](./deployments/mainnet.20260824T150000Z.json). This is source-of-truth data checked into the repo, not independently re-verified against the ledger by this document — use the Stellar Expert links to confirm each address yourself.
+
+- **Network:** `Public / Mainnet` (`network_passphrase`: `Public Global Stellar Network ; September 2015`)
+- **Underlying asset:** XLM (native), SAC address `CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA`
+- **Blend pool wired to SY Wrapper:** `CCCCIQSDILITHMM7PBSLVDT5MISSY7R26MNZXCX4H7J5JQ5FPIYOGYFS` (Blend's YieldBloxV2 XLM pool — third-party infrastructure, not part of this project)
+- **Admin:** 2-of-3 multisig at `GAZODOSMIYJK4ZY2CZH5XPNHRBUC6VOUTJT7IPC5D7UJMG2UJ3HS7CRA` — per the deployment record, signer keys are currently generated locally on the deploy machine as a stopgap and are flagged for rotation to hardware-secured keys before real value flows through these contracts
+
+| Contract | Mainnet Address | Explorer |
+| :--- | :--- | :--- |
+| **SY Wrapper** | `CDJZURY6UAXEHF25OFQCFKOIHU7EBMHGDNZGFEMOZSIRU7OMB3AE27KT` | [Stellar Expert](https://stellar.expert/explorer/public/contract/CDJZURY6UAXEHF25OFQCFKOIHU7EBMHGDNZGFEMOZSIRU7OMB3AE27KT) |
+| **PT Token** | `CAYL4A67NB7KX7AT5NRMDQD6CIXH6GH7FETP5SN7JKI4B27QB3BRU4J2` | [Stellar Expert](https://stellar.expert/explorer/public/contract/CAYL4A67NB7KX7AT5NRMDQD6CIXH6GH7FETP5SN7JKI4B27QB3BRU4J2) |
+| **YT Token** | `CA5TTQCSZ6OJRHKWZGYX3H4UUMWJMHE2V2SUTCUKUGR7C6L4TXR6YNFY` | [Stellar Expert](https://stellar.expert/explorer/public/contract/CA5TTQCSZ6OJRHKWZGYX3H4UUMWJMHE2V2SUTCUKUGR7C6L4TXR6YNFY) |
+| **Tokenizer** | `CDHNZL42APXMQ3FOOP4IOBGNBJOV3733GAZI5OFAWAKFZHWXTE6FGKUJ` | [Stellar Expert](https://stellar.expert/explorer/public/contract/CDHNZL42APXMQ3FOOP4IOBGNBJOV3733GAZI5OFAWAKFZHWXTE6FGKUJ) |
+| **AMM** | `CASLGK7OGQBATSXXIFUCHU5GU2ERDYOYBYDF5DBWB4YDDRHNVZLHSZQP` | [Stellar Expert](https://stellar.expert/explorer/public/contract/CASLGK7OGQBATSXXIFUCHU5GU2ERDYOYBYDF5DBWB4YDDRHNVZLHSZQP) |
+
+**What this is not:** unlike the [Testnet Traction](#testnet-traction) below, there is no recorded on-chain usage (deposits, splits, swaps) against these Mainnet contracts in this repo — only the deployment/initialization itself. There are no Mainnet transaction hashes, user wallets, or interaction history to report, and none should be inferred from this section. The contracts also have **no independent third-party audit** (see [Security Considerations](#security-considerations--known-limitations)) — deployment to Mainnet is not an endorsement of production-readiness.
 
 ---
 
@@ -382,7 +403,7 @@ CI (`.github/workflows/ci.yml`) runs the same quality gates: Rust fmt/clippy/tes
 | Domain | Technology |
 | :--- | :--- |
 | **Smart Contracts** | Rust, Soroban SDK (5 deployed contracts + 1 library) |
-| **Network** | Stellar (Testnet) |
+| **Network** | Stellar (Testnet primary/active; also deployed unaudited on Mainnet — see [Mainnet Verification](#mainnet-verification)) |
 | **Frontend Framework** | Next.js 16, React 19 |
 | **Language** | TypeScript |
 | **Styling & UI** | Tailwind CSS v4, Framer Motion, lucide-react icons |
@@ -397,7 +418,7 @@ CI (`.github/workflows/ci.yml`) runs the same quality gates: Rust fmt/clippy/tes
 
 ## Security Considerations & Known Limitations
 
-- **Testnet only.** The protocol is deployed and wired on Testnet (see [Deployed Contract Addresses](#deployed-contract-addresses)); `scripts/deployments.mainnet.json` is a historical/reference record and **not** a supported, audited Mainnet deployment.
+- **Unaudited, and Mainnet has no traction.** The protocol suite is deployed and wired on Stellar Testnet, with real transaction traction (see [Testnet Traction](#testnet-traction)). It is also deployed on Stellar Mainnet (see [Mainnet Verification](#mainnet-verification)), but that deployment has **no independent audit and no recorded on-chain usage** — treat it as unaudited infrastructure, not a production-ready or actively-used deployment.
 - **No independent audit.** The contracts in `contracts/` have not undergone third-party security review, and this is the single blocker for Mainnet. The only audit document in this repo ([`docs/archive/SECURITY_AUDIT.superseded.md`](./docs/archive/SECURITY_AUDIT.superseded.md)) was AI-assisted and reviews the **pre-2026-08-13 10-contract architecture that no longer exists** — do not read it as coverage of the current code. [`SECURITY.md`](./SECURITY.md) and [`docs/PROTOCOL_INVARIANTS.md`](./docs/PROTOCOL_INVARIANTS.md) document the current threat model and invariants, and [`FINDINGS.md`](./FINDINGS.md) records the 2026-08 hardening pass. None of that substitutes for a licensed third-party audit.
 
   For scale of why: that hardening pass found an exact-in swap that silently confiscated up to ~90% of a user's input. It was live on Testnet, had 135 passing tests behind it, and a written security document that did not mention it.
@@ -462,7 +483,7 @@ The indexer persists its ledger cursor via Prisma/Postgres. Set `DATABASE_URL` (
 ## FAQ
 
 **Is this deployed on Stellar Mainnet?**
-No. The project is exercised on Stellar Testnet only. `scripts/deployments.mainnet.json` exists as a historical/reference file but is not a supported, audited deployment.
+Yes, the contract suite is deployed and initialized on Stellar Mainnet — see [Mainnet Verification](#mainnet-verification) for addresses and explorer links. It is **not audited** and has **no recorded on-chain usage**; all real transaction traction (deposits, splits, swaps) has been exercised on Testnet only, see [Testnet Traction](#testnet-traction). Do not treat the Mainnet deployment as production-ready.
 
 **Which wallet do I need to use the frontend?**
 [Freighter](https://www.freighter.app/), via `@stellar/freighter-api`. No other wallet integration is present in `apps/web/package.json`.
